@@ -12,6 +12,8 @@ pub struct Grammar {
     next_id: usize,
     rules: BTreeMap<RuleId, Rule>,
     names: HashMap<String, RuleId>,
+    nonterms: HashMap<String, NonterminalId>,
+    terms: HashMap<String, TerminalId>,
 }
 
 /// A single rule within a grammar.
@@ -51,6 +53,10 @@ pub struct RuleId(usize);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ProductionId(RuleId, usize);
 
+/// A unique nonterminal identifier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct NonterminalId(usize);
+
 /// A unique terminal identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TerminalId(usize);
@@ -68,7 +74,21 @@ impl Grammar {
             next_id: 0,
             rules: BTreeMap::new(),
             names: HashMap::new(),
+            nonterms: HashMap::new(),
+            terms: HashMap::new(),
         }
+    }
+
+    /// Add a nonterminal.
+    pub fn add_nonterminal<S: Into<String>>(&mut self, name: S) -> NonterminalId {
+        let next_id = NonterminalId(self.nonterms.len());
+        *self.nonterms.entry(name.into()).or_insert(next_id)
+    }
+
+    /// Add a terminal.
+    pub fn add_terminal<S: Into<String>>(&mut self, name: S) -> TerminalId {
+        let next_id = TerminalId(self.terms.len());
+        *self.terms.entry(name.into()).or_insert(next_id)
     }
 
     /// Allocate a new rule id.
