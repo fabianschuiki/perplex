@@ -125,9 +125,21 @@ impl From<NonterminalId> for Symbol {
     }
 }
 
+impl From<usize> for NonterminalId {
+    fn from(id: usize) -> NonterminalId {
+        NonterminalId(id)
+    }
+}
+
 impl Into<usize> for NonterminalId {
     fn into(self) -> usize {
         self.0
+    }
+}
+
+impl From<usize> for TerminalId {
+    fn from(id: usize) -> TerminalId {
+        TerminalId(id)
     }
 }
 
