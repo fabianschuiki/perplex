@@ -40,8 +40,8 @@ fn compute(grammar: &Grammar) -> FirstSets {
     // Determine the sets of nonterminals to be updated.
     let mut update = BitSet::with_capacity(num_nonterm);
     let mut next_update = BitSet::with_capacity(num_nonterm);
-    for rule in grammar.rules() {
-        update.insert(rule.name().as_usize());
+    for id in 0..num_nonterm {
+        update.insert(id);
     }
 
     // Create the initial empty first sets. These will be populated in the main
@@ -62,14 +62,15 @@ fn compute(grammar: &Grammar) -> FirstSets {
     // This is the main update loop which processes nonterminals in sets.
     while !update.is_empty() {
         for current in update.iter() {
-            println!("{}:", current);
             if next_update.contains(current) {
                 continue;
             }
             let mut new_fs = fs.0[current].clone();
 
             // Udpate the first set and dependencies.
+            let mut no_rules = true;
             for rule in grammar.rules().filter(|r| r.name().as_usize() == current) {
+                no_rules = false;
                 let tight = collect_symbols(rule.symbols(), &mut |symbol: &Symbol| match *symbol {
                     Symbol::Terminal(id) => {
                         new_fs.symbols.insert(id.as_usize());
@@ -77,13 +78,15 @@ fn compute(grammar: &Grammar) -> FirstSets {
                     }
                     Symbol::Nonterminal(id) => {
                         deps[id.as_usize()].insert(current);
-                        new_fs.symbols.union_with(&fs.0[id.as_usize()].symbols);
-                        !new_fs.has_epsilon
+                        let other = &fs.0[id.as_usize()];
+                        new_fs.symbols.union_with(&other.symbols);
+                        !other.has_epsilon
                     }
                     _ => unreachable!(),
                 });
                 new_fs.has_epsilon |= !tight;
             }
+            new_fs.has_epsilon |= no_rules;
 
             // If the first set has changed, trigger an update of everything
             // that depends on us.
@@ -129,4 +132,104 @@ where
         }
     }
     false
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod test {
+    use super::*;
+    use grammar::Rule;
+
+    #[test]
+    fn simple_terminal() {
+        // A : b
+        let mut g = Grammar::new();
+        let ntA = g.add_nonterminal("A");
+        let tb = g.add_terminal("b");
+        g.add_rule(Rule::new(ntA, vec![tb.into()]));
+        assert_eq!(
+            FirstSets::compute(&g),
+            FirstSets(vec![
+                FirstSet {
+                    symbols: vec![tb.as_usize()].into_iter().collect(),
+                    has_epsilon: false,
+                },
+            ])
+        );
+    }
+
+    #[test]
+    fn simple_indirection() {
+        // A : B
+        // A : d
+        // B : c
+        let mut g = Grammar::new();
+        let ntA = g.add_nonterminal("A");
+        let ntB = g.add_nonterminal("B");
+        let tc = g.add_terminal("c");
+        let td = g.add_terminal("d");
+        g.add_rule(Rule::new(ntA, vec![ntB.into()]));
+        g.add_rule(Rule::new(ntA, vec![td.into()]));
+        g.add_rule(Rule::new(ntB, vec![tc.into()]));
+        assert_eq!(
+            FirstSets::compute(&g),
+            FirstSets(vec![
+                // A
+                FirstSet {
+                    symbols: vec![tc.as_usize(), td.as_usize()].into_iter().collect(),
+                    has_epsilon: false,
+                },
+                // B
+                FirstSet {
+                    symbols: vec![tc.as_usize()].into_iter().collect(),
+                    has_epsilon: false,
+                },
+            ])
+        );
+    }
+
+    #[test]
+    fn epsilon_rule_is_transparent() {
+        // A : B c
+        let mut g = Grammar::new();
+        let ntA = g.add_nonterminal("A");
+        let ntB = g.add_nonterminal("B");
+        let tc = g.add_terminal("c");
+        g.add_rule(Rule::new(ntA, vec![ntB.into(), tc.into()]));
+        assert_eq!(
+            FirstSets::compute(&g),
+            FirstSets(vec![
+                FirstSet {
+                    symbols: vec![tc.as_usize()].into_iter().collect(),
+                    has_epsilon: false,
+                },
+                FirstSet {
+                    symbols: vec![].into_iter().collect(),
+                    has_epsilon: true,
+                },
+            ])
+        );
+    }
+
+    #[test]
+    fn optional_terminal() {
+        // A : b? c
+        let mut g = Grammar::new();
+        let ntA = g.add_nonterminal("A");
+        let tb = g.add_terminal("b");
+        let tc = g.add_terminal("c");
+        g.add_rule(Rule::new(
+            ntA,
+            vec![Symbol::Optional(Box::new(tb.into())), tc.into()],
+        ));
+        assert_eq!(
+            FirstSets::compute(&g),
+            FirstSets(vec![
+                FirstSet {
+                    symbols: vec![tb.as_usize(), tc.as_usize()].into_iter().collect(),
+                    has_epsilon: false,
+                },
+            ])
+        );
+    }
 }
