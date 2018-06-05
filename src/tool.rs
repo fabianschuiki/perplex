@@ -4,7 +4,8 @@ extern crate clap;
 extern crate perplex;
 
 use clap::App;
-use perplex::grammar::*;
+use perplex::grammar::{Grammar, Rule};
+use perplex::first::FirstSets;
 
 #[allow(non_snake_case)]
 #[allow(unused_variables)]
@@ -35,5 +36,8 @@ fn main() {
     g.add_rule(Rule::new(ntS, vec![tb.into(), ntB.into(), td.into()]));
     g.add_rule(Rule::new(ntA, vec![tc.into()]));
     g.add_rule(Rule::new(ntB, vec![tc.into()]));
-    println!("Grammar: {:?}", g);
+
+    // Compute the first sets for the grammar.
+    let fs = FirstSets::compute(&g);
+    println!("first sets: {:#?}", fs);
 }
