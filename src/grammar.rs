@@ -66,6 +66,22 @@ impl Grammar {
         *self.terms.entry(name.into()).or_insert(next_id)
     }
 
+    /// The upper bound on nonterminal IDs.
+    ///
+    /// Basically returns the largest nonterminal ID + 1. Can be used as
+    /// capacity for containers that will hold terminals.
+    pub fn nonterminal_id_bound(&self) -> usize {
+        self.nonterms.len()
+    }
+
+    /// The upper bound on terminal IDs.
+    ///
+    /// Basically returns the largest terminal ID + 1. Can be used as capacity
+    /// for containers that will hold terminals.
+    pub fn terminal_id_bound(&self) -> usize {
+        self.terms.len()
+    }
+
     /// Add a rule to the grammar.
     pub fn add_rule(&mut self, rule: Rule) {
         self.rules.push(rule);
