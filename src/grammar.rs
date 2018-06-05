@@ -124,3 +124,15 @@ impl From<NonterminalId> for Symbol {
         Symbol::Nonterminal(id)
     }
 }
+
+impl Into<usize> for NonterminalId {
+    fn into(self) -> usize {
+        self.0
+    }
+}
+
+impl Into<usize> for TerminalId {
+    fn into(self) -> usize {
+        self.0
+    }
+}
