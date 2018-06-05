@@ -7,6 +7,7 @@ use clap::App;
 use perplex::grammar::*;
 
 #[allow(non_snake_case)]
+#[allow(unused_variables)]
 fn main() {
     let _matches = App::new(crate_name!())
         .version(crate_version!())
@@ -14,7 +15,7 @@ fn main() {
         .get_matches();
     println!("This is perplexing");
 
-    // Build the grammar in David Tribble's example.
+    // Build the grammar in David Tribble's example 11.
     let mut g = Grammar::new();
     let (ntS, ntA, ntB) = (
         g.add_nonterminal("S"),
@@ -28,11 +29,11 @@ fn main() {
         g.add_terminal("d"),
         g.add_terminal("e"),
     );
-    println!("{:?}", [ntS, ntA, ntB]);
-    println!("{:?}", [ta, tb, tc, td, te]);
-    let mut r = Rule::new(g.alloc_name("A".into()), "A".into());
-    let p = Production::new(r.alloc_id(), vec![]);
-    r.add_production(p);
-    g.add_rule(r);
-    println!("grammar: {:#?}", g);
+    g.add_rule(Rule::new(ntS, vec![ta.into(), ntA.into(), td.into()]));
+    g.add_rule(Rule::new(ntS, vec![ta.into(), ntB.into(), te.into()]));
+    g.add_rule(Rule::new(ntS, vec![tb.into(), ntA.into(), te.into()]));
+    g.add_rule(Rule::new(ntS, vec![tb.into(), ntB.into(), td.into()]));
+    g.add_rule(Rule::new(ntA, vec![tc.into()]));
+    g.add_rule(Rule::new(ntB, vec![tc.into()]));
+    println!("Grammar: {:?}", g);
 }
