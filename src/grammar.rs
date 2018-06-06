@@ -41,6 +41,12 @@ pub struct NonterminalId(usize);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TerminalId(usize);
 
+/// The start rule nonterminal `$accept`.
+pub const ACCEPT: NonterminalId = NonterminalId(std::usize::MAX);
+
+/// The special end of input terminal `$end`.
+pub const END: TerminalId = TerminalId(std::usize::MAX);
+
 /// An iterator over the rules of a grammar.
 pub type RulesIter<'a> = std::slice::Iter<'a, Rule>;
 
