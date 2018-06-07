@@ -133,6 +133,17 @@ impl Grammar {
     pub fn rules(&self) -> RulesIter {
         self.rules.iter()
     }
+
+    /// Access a single rule of this grammar.
+    ///
+    /// Panics if the id is the builtin `ACCEPT` nonterminal, which represents
+    /// the virtual root rule.
+    pub fn rule(&self, id: NonterminalId) -> &Rule {
+        if id == ACCEPT {
+            panic!("rule() called for builtin ACCEPT nonterminal");
+        }
+        &self.rules[id.as_usize()]
+    }
 }
 
 impl Rule {
