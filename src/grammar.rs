@@ -11,6 +11,8 @@ pub struct Grammar {
     rules: Vec<Rule>,
     nonterms: HashMap<String, NonterminalId>,
     terms: HashMap<String, TerminalId>,
+    nonterm_names: Vec<String>,
+    term_names: Vec<String>,
 }
 
 /// A single rule within a grammar.
@@ -57,19 +59,53 @@ impl Grammar {
             rules: Vec::new(),
             nonterms: HashMap::new(),
             terms: HashMap::new(),
+            nonterm_names: Vec::new(),
+            term_names: Vec::new(),
         }
     }
 
     /// Add a nonterminal.
     pub fn add_nonterminal<S: Into<String>>(&mut self, name: S) -> NonterminalId {
-        let next_id = NonterminalId(self.nonterms.len());
-        *self.nonterms.entry(name.into()).or_insert(next_id)
+        let name = name.into();
+        let next_id = NonterminalId(self.nonterm_names.len());
+        if let Some(&id) = self.nonterms.get(&name) {
+            id
+        } else {
+            self.nonterms.insert(name.clone(), next_id);
+            self.nonterm_names.push(name);
+            next_id
+        }
     }
 
     /// Add a terminal.
     pub fn add_terminal<S: Into<String>>(&mut self, name: S) -> TerminalId {
-        let next_id = TerminalId(self.terms.len());
-        *self.terms.entry(name.into()).or_insert(next_id)
+        let name = name.into();
+        let next_id = TerminalId(self.term_names.len());
+        if let Some(&id) = self.terms.get(&name) {
+            id
+        } else {
+            self.terms.insert(name.clone(), next_id);
+            self.term_names.push(name);
+            next_id
+        }
+    }
+
+    /// Get the name of a nonterminal.
+    pub fn nonterminal_name(&self, id: NonterminalId) -> &str {
+        if id == ACCEPT {
+            "$accept"
+        } else {
+            &self.nonterm_names[id.as_usize()]
+        }
+    }
+
+    /// Get the name of a terminal.
+    pub fn terminal_name(&self, id: TerminalId) -> &str {
+        if id == END {
+            "$end"
+        } else {
+            &self.term_names[id.as_usize()]
+        }
     }
 
     /// The upper bound on nonterminal IDs.
@@ -77,7 +113,7 @@ impl Grammar {
     /// Basically returns the largest nonterminal ID + 1. Can be used as
     /// capacity for containers that will hold terminals.
     pub fn nonterminal_id_bound(&self) -> usize {
-        self.nonterms.len()
+        self.nonterm_names.len()
     }
 
     /// The upper bound on terminal IDs.
@@ -85,7 +121,7 @@ impl Grammar {
     /// Basically returns the largest terminal ID + 1. Can be used as capacity
     /// for containers that will hold terminals.
     pub fn terminal_id_bound(&self) -> usize {
-        self.terms.len()
+        self.term_names.len()
     }
 
     /// Add a rule to the grammar.
