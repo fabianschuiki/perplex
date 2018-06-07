@@ -46,8 +46,12 @@ pub struct NonterminalId(usize);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TerminalId(usize);
 
-/// The start rule nonterminal `$accept`.
-pub const ACCEPT: NonterminalId = NonterminalId(std::usize::MAX);
+/// A unique rule identifier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RuleId(usize);
+
+/// The start rule `$accept -> S`.
+pub const ACCEPT: RuleId = RuleId(std::usize::MAX);
 
 /// The special end of input terminal `$end`.
 pub const END: TerminalId = TerminalId(std::usize::MAX);
@@ -95,11 +99,7 @@ impl Grammar {
 
     /// Get the name of a nonterminal.
     pub fn nonterminal_name(&self, id: NonterminalId) -> &str {
-        if id == ACCEPT {
-            "$accept"
-        } else {
-            &self.nonterm_names[id.as_usize()]
-        }
+        &self.nonterm_names[id.as_usize()]
     }
 
     /// Get the name of a terminal.
@@ -141,9 +141,9 @@ impl Grammar {
     ///
     /// Panics if the id is the builtin `ACCEPT` nonterminal, which represents
     /// the virtual root rule.
-    pub fn rule(&self, id: NonterminalId) -> &Rule {
+    pub fn rule(&self, id: RuleId) -> &Rule {
         if id == ACCEPT {
-            panic!("rule() called for builtin ACCEPT nonterminal");
+            panic!("rule() called for builtin ACCEPT rule");
         }
         &self.rules[id.as_usize()]
     }
@@ -249,5 +249,17 @@ impl TerminalId {
 impl<'a> fmt::Display for Pretty<&'a Grammar, TerminalId> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.ctx.terminal_name(self.item))
+    }
+}
+
+impl RuleId {
+    /// Create a rule id from a usize.
+    pub fn from_usize(id: usize) -> RuleId {
+        RuleId(id)
+    }
+
+    /// Obtain the id as a usize.
+    pub fn as_usize(self) -> usize {
+        self.0
     }
 }
