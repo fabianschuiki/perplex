@@ -8,3 +8,15 @@ extern crate bit_set;
 
 pub mod grammar;
 pub mod first;
+
+/// A pretty printer.
+pub struct Pretty<C, T> {
+    ctx: C,
+    item: T,
+}
+
+impl<C, T> Pretty<C, T> {
+    pub(crate) fn new(ctx: C, item: T) -> Pretty<C, T> {
+        Pretty { ctx, item }
+    }
+}

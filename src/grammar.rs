@@ -3,7 +3,10 @@
 //! Data structures representing a grammar.
 
 use std;
+use std::fmt;
+use std::iter::{once, repeat};
 use std::collections::HashMap;
+use Pretty;
 
 /// A grammar.
 #[derive(Debug)]
@@ -166,6 +169,13 @@ impl Rule {
     }
 }
 
+impl Symbol {
+    /// Get a pretty printer for this symbol.
+    pub fn pretty<'a>(&'a self, grammar: &'a Grammar) -> Pretty<&'a Grammar, &'a Self> {
+        Pretty::new(grammar, self)
+    }
+}
+
 impl From<TerminalId> for Symbol {
     fn from(id: TerminalId) -> Symbol {
         Symbol::Terminal(id)
@@ -175,6 +185,24 @@ impl From<TerminalId> for Symbol {
 impl From<NonterminalId> for Symbol {
     fn from(id: NonterminalId) -> Symbol {
         Symbol::Nonterminal(id)
+    }
+}
+
+impl<'a> fmt::Display for Pretty<&'a Grammar, &'a Symbol> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self.item {
+            Symbol::Terminal(id) => write!(f, "{}", id.pretty(self.ctx)),
+            Symbol::Nonterminal(id) => write!(f, "{}", id.pretty(self.ctx)),
+            Symbol::Group(ref symbols) => {
+                write!(f, "(")?;
+                for (symbol, sep) in symbols.iter().zip(once("").chain(repeat(" "))) {
+                    write!(f, "{}{}", sep, symbol.pretty(self.ctx))?;
+                }
+                write!(f, ")")?;
+                Ok(())
+            }
+            Symbol::Optional(ref symbol) => write!(f, "{}?", symbol.pretty(self.ctx)),
+        }
     }
 }
 
@@ -188,6 +216,17 @@ impl NonterminalId {
     pub fn as_usize(self) -> usize {
         self.0
     }
+
+    /// Get a pretty printer for this nonterminal.
+    pub fn pretty(self, grammar: &Grammar) -> Pretty<&Grammar, Self> {
+        Pretty::new(grammar, self)
+    }
+}
+
+impl<'a> fmt::Display for Pretty<&'a Grammar, NonterminalId> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.ctx.nonterminal_name(self.item))
+    }
 }
 
 impl TerminalId {
@@ -199,5 +238,16 @@ impl TerminalId {
     /// Obtain the id as a usize.
     pub fn as_usize(self) -> usize {
         self.0
+    }
+
+    /// Get a pretty printer for this terminal.
+    pub fn pretty(self, grammar: &Grammar) -> Pretty<&Grammar, Self> {
+        Pretty::new(grammar, self)
+    }
+}
+
+impl<'a> fmt::Display for Pretty<&'a Grammar, TerminalId> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.ctx.terminal_name(self.item))
     }
 }
