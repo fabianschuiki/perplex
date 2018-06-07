@@ -8,6 +8,7 @@ extern crate bit_set;
 
 pub mod grammar;
 pub mod first;
+pub mod item_set;
 
 /// A pretty printer.
 pub struct Pretty<C, T> {
