@@ -15,6 +15,7 @@ pub struct Grammar {
     nonterms: HashMap<String, NonterminalId>,
     terms: HashMap<String, TerminalId>,
     nonterm_names: Vec<String>,
+    nonterm_rules: Vec<Vec<RuleId>>,
     term_names: Vec<String>,
 }
 
@@ -59,6 +60,9 @@ pub const END: TerminalId = TerminalId(std::usize::MAX);
 /// An iterator over the rules of a grammar.
 pub type RulesIter<'a> = std::slice::Iter<'a, Rule>;
 
+/// an iterator over the rule IDs of a grammar.
+pub type RuleIdsIter<'a> = std::slice::Iter<'a, RuleId>;
+
 impl Grammar {
     /// Create a new empty grammar.
     pub fn new() -> Grammar {
@@ -67,6 +71,7 @@ impl Grammar {
             nonterms: HashMap::new(),
             terms: HashMap::new(),
             nonterm_names: Vec::new(),
+            nonterm_rules: Vec::new(),
             term_names: Vec::new(),
         }
     }
@@ -80,6 +85,7 @@ impl Grammar {
         } else {
             self.nonterms.insert(name.clone(), next_id);
             self.nonterm_names.push(name);
+            self.nonterm_rules.push(Vec::new());
             next_id
         }
     }
@@ -129,12 +135,18 @@ impl Grammar {
 
     /// Add a rule to the grammar.
     pub fn add_rule(&mut self, rule: Rule) {
+        self.nonterm_rules[rule.name().as_usize()].push(RuleId::from_usize(self.rules.len()));
         self.rules.push(rule);
     }
 
     /// The rules in this grammar.
     pub fn rules(&self) -> RulesIter {
         self.rules.iter()
+    }
+
+    /// The rules for a specific nonterminal in the grammar.
+    pub fn rules_for_nonterminal(&self, id: NonterminalId) -> RuleIdsIter {
+        self.nonterm_rules[id.as_usize()].iter()
     }
 
     /// Access a single rule of this grammar.
