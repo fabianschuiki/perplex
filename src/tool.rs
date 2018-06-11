@@ -39,5 +39,9 @@ fn main() {
 
     // Construct the item sets for the grammar.
     let is = construct_item_sets(&g);
-    println!("item sets: {:#?}", is);
+    println!("item sets:");
+    for (i, item_set) in is.iter().enumerate() {
+        println!("i{}:", i);
+        println!("{}", item_set.pretty(&g));
+    }
 }
