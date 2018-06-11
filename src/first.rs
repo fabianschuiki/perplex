@@ -10,7 +10,7 @@
 use std::mem::swap;
 use std::iter::repeat;
 use bit_set::BitSet;
-use grammar::{Grammar, Symbol};
+use grammar::{Grammar, RuleId, Symbol};
 
 /// All first sets of a grammar.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -20,15 +20,25 @@ pub struct FirstSets(Vec<FirstSet>);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FirstSet {
     /// The first symbols.
-    symbols: BitSet,
+    pub symbols: BitSet,
     /// Whether one of the productions is empty.
-    has_epsilon: bool,
+    pub has_epsilon: bool,
 }
 
 impl FirstSets {
     /// Compute the first sets of a grammar.
     pub fn compute(grammar: &Grammar) -> FirstSets {
         compute(grammar)
+    }
+
+    /// Get the first sets in the grammar.
+    pub fn all(&self) -> &[FirstSet] {
+        &self.0
+    }
+
+    /// Get the first set of a specific rule in the grammar.
+    pub fn get(&self, rule: RuleId) -> Option<&FirstSet> {
+        self.0.get(rule.as_usize())
     }
 }
 
