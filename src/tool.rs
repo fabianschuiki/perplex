@@ -5,7 +5,7 @@ extern crate perplex;
 
 use clap::App;
 use perplex::grammar::{Grammar, Rule};
-use perplex::first::FirstSets;
+use perplex::honalee::construct_item_sets;
 
 #[allow(non_snake_case)]
 #[allow(unused_variables)]
@@ -37,7 +37,7 @@ fn main() {
     g.add_rule(Rule::new(ntA, vec![tc.into()]));
     g.add_rule(Rule::new(ntB, vec![tc.into()]));
 
-    // Compute the first sets for the grammar.
-    let fs = FirstSets::compute(&g);
-    println!("first sets: {:#?}", fs);
+    // Construct the item sets for the grammar.
+    let is = construct_item_sets(&g);
+    println!("item sets: {:#?}", is);
 }
