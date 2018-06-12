@@ -7,3 +7,11 @@ This is *perplex*, a grammar analyzer and parser generator for almost-context-fr
 - [D. Tribble, "Practical LR(k) Parser Construction"][Tribble2004]
 
 [Tribble2004]: http://david.tribble.com/text/lrk_parsing.html
+
+## Todo
+
+- [ ] item set generation
+- [ ] item set merging/compression
+- [ ] state space computation
+- [ ] symbol groups, optional symbols, repetitions
+- [ ] generalization to CFG, tiered parsing
