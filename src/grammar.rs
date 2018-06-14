@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use Pretty;
 
 /// A grammar.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Grammar {
     rules: Vec<Rule>,
     nonterms: HashMap<String, NonterminalId>,
@@ -20,14 +20,14 @@ pub struct Grammar {
 }
 
 /// A single rule within a grammar.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Rule {
     name: NonterminalId,
     symbols: Vec<Symbol>,
 }
 
 /// A symbol of a production.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Symbol {
     /// A terminal.
     Terminal(TerminalId),
