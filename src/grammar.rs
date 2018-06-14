@@ -55,7 +55,7 @@ pub struct RuleId(usize);
 pub const ACCEPT: RuleId = RuleId(std::usize::MAX);
 
 /// The special end of input terminal `$end`.
-pub const END: TerminalId = TerminalId(std::usize::MAX);
+pub const END: TerminalId = TerminalId(0);
 
 /// An iterator over the rules of a grammar.
 pub type RulesIter<'a> = std::slice::Iter<'a, Rule>;
@@ -93,7 +93,7 @@ impl Grammar {
     /// Add a terminal.
     pub fn add_terminal<S: Into<String>>(&mut self, name: S) -> TerminalId {
         let name = name.into();
-        let next_id = TerminalId(self.term_names.len());
+        let next_id = TerminalId(self.term_names.len() + 1);
         if let Some(&id) = self.terms.get(&name) {
             id
         } else {
@@ -113,7 +113,7 @@ impl Grammar {
         if id == END {
             "$end"
         } else {
-            &self.term_names[id.as_usize()]
+            &self.term_names[id.as_usize() - 1]
         }
     }
 
@@ -130,7 +130,7 @@ impl Grammar {
     /// Basically returns the largest terminal ID + 1. Can be used as capacity
     /// for containers that will hold terminals.
     pub fn terminal_id_bound(&self) -> usize {
-        self.term_names.len()
+        self.term_names.len() + 1
     }
 
     /// Add a rule to the grammar.
