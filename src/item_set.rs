@@ -161,6 +161,7 @@ impl fmt::Display for Action {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Action::Shift(id) => write!(f, "i{}", id),
+            Action::Reduce(grammar::ACCEPT) => write!(f, "$accept"),
             Action::Reduce(id) => write!(f, "r{}", id.as_usize()),
         }
     }
