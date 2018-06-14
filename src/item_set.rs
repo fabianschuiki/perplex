@@ -44,6 +44,9 @@ impl<'a> fmt::Display for Pretty<&'a Grammar, &'a ItemSet> {
                 write!(f, "\n")?;
             }
             write!(f, "{} {}", index, item.pretty(self.ctx))?;
+            if index < self.item.kernel {
+                write!(f, " *")?;
+            }
         }
         if self.item.items.is_empty() {
             write!(f, "<empty>")?;
