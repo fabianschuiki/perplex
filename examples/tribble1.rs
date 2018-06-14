@@ -2,10 +2,9 @@
 extern crate perplex;
 
 use perplex::grammar::{Grammar, Rule};
-use perplex::first::FirstSets;
+use perplex::item_set::ItemSets;
 
 #[allow(non_snake_case)]
-#[allow(unused_variables)]
 fn main() {
     // Build the grammar in David Tribble's example 11.
     let mut g = Grammar::new();
@@ -29,6 +28,6 @@ fn main() {
     g.add_rule(Rule::new(ntB, vec![tc.into()]));
 
     // Compute the first sets for the grammar.
-    let fs = FirstSets::compute(&g);
-    println!("{:#?}", fs);
+    let is = ItemSets::compute(&g);
+    println!("{}", is.pretty(&g));
 }

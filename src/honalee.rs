@@ -14,7 +14,7 @@ use item_set::{Action, Item, ItemSet, ItemSets};
 #[allow(unused_variables)]
 #[allow(unused_mut)]
 #[allow(unused_assignments)]
-pub fn construct_item_sets(grammar: &Grammar) -> ItemSets {
+pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
     let mut done_list: Vec<ItemSet> = vec![];
     let mut todo_list: Vec<ItemSet> = vec![];
     let mut inc_list: VecDeque<ItemSet> = VecDeque::new();

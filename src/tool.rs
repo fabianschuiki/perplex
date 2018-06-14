@@ -5,7 +5,7 @@ extern crate perplex;
 
 use clap::App;
 use perplex::grammar::{Grammar, Rule};
-use perplex::honalee::construct_item_sets;
+use perplex::item_set::ItemSets;
 
 #[allow(non_snake_case)]
 #[allow(unused_variables)]
@@ -38,7 +38,7 @@ fn main() {
     g.add_rule(Rule::new(ntB, vec![tc.into()]));
 
     // Construct the item sets for the grammar.
-    let is = construct_item_sets(&g);
+    let is = ItemSets::compute(&g);
     println!("item sets:");
     println!("{}", is.pretty(&g));
 }

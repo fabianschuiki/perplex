@@ -11,6 +11,7 @@ use bit_set::BitSet;
 use Pretty;
 use grammar::{self, Grammar, NonterminalId, RuleId, Symbol, TerminalId};
 use first::FirstSets;
+use honalee;
 
 /// All item sets of a grammar.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -55,6 +56,11 @@ impl ItemSets {
     /// Create a new list of item sets.
     pub fn new(sets: Vec<ItemSet>) -> ItemSets {
         ItemSets(sets)
+    }
+
+    /// Compute the item sets for a grammar.
+    pub fn compute(grammar: &Grammar) -> ItemSets {
+        honalee::construct_item_sets(grammar)
     }
 
     /// Get the item sets in the grammar.
