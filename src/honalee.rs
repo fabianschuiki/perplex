@@ -2,13 +2,13 @@
 
 //! Implementation of the Honalee Algorithm for item set generation.
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 use bit_set::BitSet;
 
-use grammar::{self, Grammar, NonterminalId, Symbol};
+use grammar::{self, Grammar, NonterminalId, RuleId, Symbol};
 use first::FirstSets;
-use item_set::{Action, Item, ItemSet, ItemSets};
+use item_set::{Action, Item, ItemSet, ItemSets, KernelCores};
 
 /// Construct the item sets for a grammar.
 #[allow(unused_variables)]
@@ -19,6 +19,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
     let mut todo_list: Vec<ItemSet> = vec![];
     let mut inc_list: VecDeque<ItemSet> = VecDeque::new();
     let mut come_from: Option<usize> = None;
+    let mut merge_hint: HashMap<KernelCores, Vec<usize>> = HashMap::new();
 
     // Compute the first sets for the grammar.
     let first_sets = FirstSets::compute(grammar);
@@ -46,7 +47,49 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
         // for transition generation.
         for mut item_set in todo_list.drain(..) {
             item_set.closure(grammar, &first_sets);
-            println!("closed: {}", item_set.pretty(grammar));
+            println!("phase 1: {}", item_set.pretty(grammar));
+
+            // Make sure there is a list of actions for each item.
+            item_set
+                .item_actions
+                .resize(item_set.items.len(), BitSet::new());
+
+            // Generate the reduce actions of this item set.
+            let mut reduce_lookup: HashMap<Symbol, RuleId> = HashMap::new();
+            for i in 0..item_set.items.len() {
+                let item = &item_set.items[i];
+                let rule = if item.rule == grammar::ACCEPT {
+                    if item.marker == 1 {
+                        RuleId::from_usize(0)
+                    } else {
+                        continue;
+                    }
+                } else {
+                    let symbols = grammar.rule(item.rule).symbols();
+                    if item.marker == symbols.len() {
+                        item.rule
+                    } else {
+                        continue;
+                    }
+                };
+                let action_id = item_set.actions.len();
+                item_set
+                    .actions
+                    .push((item.lookahead.into(), Action::Reduce(rule)));
+                item_set.item_actions[i].insert(action_id);
+                reduce_lookup.insert(item.lookahead.into(), rule);
+            }
+
+            // Consider all done item sets with the same kernel item cores as
+            // potential candidates to merge this item set into.
+            for &index in merge_hint
+                .get(&item_set.kernel_item_cores())
+                .iter()
+                .flat_map(|i| i.iter())
+            {
+                println!("- maybe can be merged with {}", index);
+                // Make sure that merging would not produce any conflicts.
+            }
             // TODO: try merge, upon fail add to inc_list
             inc_list.push_back(item_set);
         }
@@ -55,11 +98,8 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
         // spawn subsequent item sets, which will then be processed in phase 1
         // of the next iteration.
         if let Some(mut item_set) = inc_list.pop_front() {
-            println!("completing:");
+            println!("phase 2:");
             println!("{}", item_set.pretty(grammar));
-            item_set
-                .item_actions
-                .resize(item_set.items.len(), BitSet::new());
 
             let root_symbol = Symbol::Nonterminal(NonterminalId::from_usize(0));
             let mut treated = BitSet::with_capacity(item_set.items.len());
@@ -137,6 +177,10 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
             }
 
             come_from = Some(done_list.len());
+            merge_hint
+                .entry(item_set.kernel_item_cores())
+                .or_insert_with(|| Vec::new())
+                .push(done_list.len());
             done_list.push(item_set);
         } else {
             come_from = None;
