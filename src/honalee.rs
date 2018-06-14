@@ -4,7 +4,9 @@
 
 use std::collections::VecDeque;
 
-use grammar::{self, Grammar};
+use bit_set::BitSet;
+
+use grammar::{self, Grammar, NonterminalId, Symbol};
 use first::FirstSets;
 use item_set::{Item, ItemSet};
 
@@ -51,7 +53,70 @@ pub fn construct_item_sets(grammar: &Grammar) -> Vec<ItemSet> {
         // spawn subsequent item sets, which will then be processed in phase 1
         // of the next iteration.
         if let Some(item_set) = inc_list.pop_front() {
-            println!("completed: {}", item_set.pretty(grammar));
+            println!("completing:");
+            println!("{}", item_set.pretty(grammar));
+
+            let root_symbol = Symbol::Nonterminal(NonterminalId::from_usize(0));
+            let mut treated = BitSet::with_capacity(item_set.items.len());
+            for i in 0..item_set.items.len() {
+                if treated.contains(i) {
+                    continue;
+                }
+                let item = item_set.items[i];
+                let symbol = if item.rule == grammar::ACCEPT {
+                    if item.marker != 0 {
+                        continue;
+                    }
+                    &root_symbol
+                } else {
+                    let symbols = grammar.rule(item.rule).symbols();
+                    if item.marker < symbols.len() {
+                        &symbols[item.marker] // TODO: use proper marker math
+                    } else {
+                        continue;
+                    }
+                };
+                println!("- shift {}", symbol.pretty(grammar));
+
+                let mut new_items = vec![];
+                for n in i..item_set.items.len() {
+                    if treated.contains(n) {
+                        continue;
+                    }
+                    let item2 = item_set.items[n];
+                    let symbol2 = if item2.rule == grammar::ACCEPT {
+                        if item.marker != 0 {
+                            continue;
+                        }
+                        &root_symbol
+                    } else {
+                        let symbols = grammar.rule(item2.rule).symbols();
+                        if item2.marker < symbols.len() {
+                            &symbols[item2.marker]
+                        } else {
+                            continue;
+                        }
+                    };
+                    if symbol2 != symbol {
+                        continue;
+                    }
+                    new_items.push(Item {
+                        rule: item2.rule,
+                        lookahead: item2.lookahead,
+                        marker: item2.marker + 1,
+                    });
+                    treated.insert(n);
+                }
+
+                let new_set = ItemSet {
+                    kernel: new_items.len(),
+                    items: new_items,
+                };
+
+                println!("{}", new_set.pretty(grammar));
+                todo_list.push(new_set);
+            }
+
             come_from = Some(done_list.len());
             done_list.push(item_set);
         } else {
