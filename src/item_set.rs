@@ -3,7 +3,7 @@
 //! Item sets derived from a grammar.
 
 use std::fmt;
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::iter::{once, repeat};
 
 use bit_set::BitSet;
@@ -116,6 +116,18 @@ impl ItemSet {
     /// Compute the closure of the item set.
     pub fn closure(&mut self, grammar: &Grammar, first_sets: &FirstSets) {
         compute_closure(self, grammar, first_sets)
+    }
+
+    /// Compute the kernel item cores.
+    ///
+    /// The returned struct can be used to compare two item sets for equality in
+    /// their kernel item cores.
+    pub fn kernel_item_cores(&self) -> KernelCores {
+        let set: BTreeSet<_> = self.items[0..self.kernel]
+            .iter()
+            .map(|item| (item.rule, item.marker))
+            .collect();
+        KernelCores(set.into_iter().collect())
     }
 }
 
@@ -300,3 +312,10 @@ where
     }
     (set, true)
 }
+
+/// A list of kernel item cores.
+///
+/// The entries are sorted such that two item sets with the same kernel item
+/// cores but different order will produce the same KernelCores struct.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct KernelCores(Vec<(RuleId, usize)>);
