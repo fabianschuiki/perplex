@@ -8,7 +8,7 @@ use bit_set::BitSet;
 
 use grammar::{self, Grammar, NonterminalId, Symbol};
 use first::FirstSets;
-use item_set::{Item, ItemSet};
+use item_set::{Action, Item, ItemSet};
 
 /// Construct the item sets for a grammar.
 #[allow(unused_variables)]
@@ -24,20 +24,22 @@ pub fn construct_item_sets(grammar: &Grammar) -> Vec<ItemSet> {
     let first_sets = FirstSets::compute(grammar);
 
     // Create the initial item set.
-    let initial = ItemSet {
-        items: vec![
+    let initial = ItemSet::with_items(
+        0,
+        vec![
             Item {
                 rule: grammar::ACCEPT,
                 lookahead: grammar::END,
                 marker: 0,
             },
         ],
-        kernel: 1,
-    };
+    );
     println!("initial item set: {}", initial.pretty(grammar));
     todo_list.push(initial);
 
     // The main loop.
+    let mut tmp_set_id = 1; // ID for new sets
+    let mut inc_set_id = 1; // ID for sets after merging
     while !todo_list.is_empty() || !inc_list.is_empty() {
         // Phase 1: Calculate the closure over all todo item sets and either
         // merge them with an existing set, or add them to the incomplete list
@@ -52,9 +54,12 @@ pub fn construct_item_sets(grammar: &Grammar) -> Vec<ItemSet> {
         // Phase 2: For one incomplete item set, compute the transitions and
         // spawn subsequent item sets, which will then be processed in phase 1
         // of the next iteration.
-        if let Some(item_set) = inc_list.pop_front() {
+        if let Some(mut item_set) = inc_list.pop_front() {
             println!("completing:");
             println!("{}", item_set.pretty(grammar));
+            item_set
+                .item_actions
+                .resize(item_set.items.len(), BitSet::new());
 
             let root_symbol = Symbol::Nonterminal(NonterminalId::from_usize(0));
             let mut treated = BitSet::with_capacity(item_set.items.len());
@@ -78,7 +83,13 @@ pub fn construct_item_sets(grammar: &Grammar) -> Vec<ItemSet> {
                 };
                 println!("- shift {}", symbol.pretty(grammar));
 
-                let mut new_items = vec![];
+                let mut new_set = ItemSet::new(tmp_set_id);
+                tmp_set_id += 1;
+                let action_id = item_set.actions.len();
+                item_set
+                    .actions
+                    .push((symbol.clone(), Action::Shift(new_set.id)));
+
                 for n in i..item_set.items.len() {
                     if treated.contains(n) {
                         continue;
@@ -100,18 +111,16 @@ pub fn construct_item_sets(grammar: &Grammar) -> Vec<ItemSet> {
                     if symbol2 != symbol {
                         continue;
                     }
-                    new_items.push(Item {
+                    new_set.items.push(Item {
                         rule: item2.rule,
                         lookahead: item2.lookahead,
                         marker: item2.marker + 1,
                     });
+                    item_set.item_actions[n].insert(action_id);
                     treated.insert(n);
                 }
 
-                let new_set = ItemSet {
-                    kernel: new_items.len(),
-                    items: new_items,
-                };
+                new_set.kernel = new_set.items.len();
 
                 println!("{}", new_set.pretty(grammar));
                 todo_list.push(new_set);

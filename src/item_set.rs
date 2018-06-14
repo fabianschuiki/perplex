@@ -14,13 +14,58 @@ use first::FirstSets;
 /// An item set.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ItemSet {
+    /// The id of this item set.
+    pub(crate) id: usize,
     /// The items in the set.
     pub(crate) items: Vec<Item>,
     /// The number of kernel items.
     pub(crate) kernel: usize,
+    /// The actions to be taken for different symbols.
+    pub(crate) actions: Vec<(Symbol, Action)>,
+    /// An item-to-action mapping.
+    pub(crate) item_actions: Vec<BitSet>,
+}
+
+/// A single item.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct Item {
+    /// The rule of the item.
+    pub(crate) rule: RuleId,
+    /// The lookahead terminal.
+    pub(crate) lookahead: TerminalId,
+    /// The position of the marker within the rule.
+    pub(crate) marker: usize,
+}
+
+/// An action to be taken upon encountering a symbol.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Action {
+    /// Shift the symbol and go to the given item set.
+    Shift(usize),
+    /// Reduce with the given rule.
+    Reduce(RuleId),
 }
 
 impl ItemSet {
+    /// Create a new item set.
+    pub fn new(id: usize) -> ItemSet {
+        ItemSet {
+            id: id,
+            items: Vec::new(),
+            kernel: 0,
+            actions: Vec::new(),
+            item_actions: Vec::new(),
+        }
+    }
+
+    /// Create a new item set with certain items.
+    pub fn with_items(id: usize, items: Vec<Item>) -> ItemSet {
+        let mut set = ItemSet::new(id);
+        set.kernel = items.len();
+        set.items = items;
+        set
+    }
+
     /// Get the items in the set.
     pub fn items(&self) -> &[Item] {
         &self.items
@@ -39,31 +84,27 @@ impl ItemSet {
 
 impl<'a> fmt::Display for Pretty<&'a Grammar, &'a ItemSet> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "i{}:", self.item.id)?;
         for (index, item) in self.item.items.iter().enumerate() {
             if index > 0 {
                 write!(f, "\n")?;
             }
-            write!(f, "{} {}", index, item.pretty(self.ctx))?;
+            write!(f, "    {} {}", index, item.pretty(self.ctx))?;
             if index < self.item.kernel {
-                write!(f, " *")?;
+                write!(f, "*")?;
+            }
+            if self.item.item_actions.len() > index {
+                for action_id in &self.item.item_actions[index] {
+                    let (ref symbol, action) = self.item.actions[action_id];
+                    write!(f, " ({}, {})", symbol.pretty(self.ctx), action)?;
+                }
             }
         }
         if self.item.items.is_empty() {
-            write!(f, "<empty>")?;
+            write!(f, "    <empty>")?;
         }
         Ok(())
     }
-}
-
-/// A single item.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct Item {
-    /// The rule of the item.
-    pub(crate) rule: RuleId,
-    /// The lookahead terminal.
-    pub(crate) lookahead: TerminalId,
-    /// The position of the marker within the rule.
-    pub(crate) marker: usize,
 }
 
 impl Item {
@@ -113,6 +154,15 @@ impl<'a> fmt::Display for Pretty<&'a Grammar, &'a Item> {
         }
         write!(f, ", {}]", self.item.lookahead.pretty(self.ctx))?;
         Ok(())
+    }
+}
+
+impl fmt::Display for Action {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Action::Shift(id) => write!(f, "i{}", id),
+            Action::Reduce(id) => write!(f, "r{}", id.as_usize()),
+        }
     }
 }
 

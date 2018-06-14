@@ -41,7 +41,6 @@ fn main() {
     let is = construct_item_sets(&g);
     println!("item sets:");
     for (i, item_set) in is.iter().enumerate() {
-        println!("i{}:", i);
         println!("{}", item_set.pretty(&g));
     }
 }
