@@ -10,8 +10,8 @@ This is *perplex*, a grammar analyzer and parser generator for almost-context-fr
 
 ## Todo
 
-- [ ] item set generation
+- [x] item set generation
 - [ ] item set merging/compression
 - [ ] state space computation
-- [ ] symbol groups, optional symbols, repetitions
+- [ ] separate extended grammar with symbol groups, optional symbols, repetitions
 - [ ] generalization to CFG, tiered parsing
