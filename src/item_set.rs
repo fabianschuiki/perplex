@@ -125,18 +125,23 @@ fn compute_closure(item_set: &mut ItemSet, grammar: &Grammar, first_sets: &First
         tail += 1;
         if item.rule == grammar::ACCEPT {
             if item.marker == 0 {
-                let new_item = Item {
-                    rule: RuleId::from_usize(0),
-                    lookahead: item.lookahead,
-                    marker: 0,
-                };
-                if !done.contains(&new_item) {
-                    done.insert(new_item);
-                    item_set.items.push(new_item);
+                for &rule_id in grammar.rules_for_nonterminal(NonterminalId::from_usize(0)) {
+                    let new_item = Item {
+                        rule: rule_id,
+                        lookahead: item.lookahead,
+                        marker: 0,
+                    };
+                    if !done.contains(&new_item) {
+                        done.insert(new_item);
+                        item_set.items.push(new_item);
+                    }
                 }
             }
         } else {
             let symbols = grammar.rule(item.rule).symbols();
+            if item.marker == symbols.len() {
+                continue;
+            }
             match symbols[item.marker] {
                 Symbol::Terminal(_) => (),
                 Symbol::Nonterminal(id) => {
