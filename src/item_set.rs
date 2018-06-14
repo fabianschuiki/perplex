@@ -4,12 +4,17 @@
 
 use std::fmt;
 use std::collections::HashSet;
+use std::iter::{once, repeat};
 
 use bit_set::BitSet;
 
 use Pretty;
 use grammar::{self, Grammar, NonterminalId, RuleId, Symbol, TerminalId};
 use first::FirstSets;
+
+/// All item sets of a grammar.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ItemSets(Vec<ItemSet>);
 
 /// An item set.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -44,6 +49,32 @@ pub enum Action {
     Shift(usize),
     /// Reduce with the given rule.
     Reduce(RuleId),
+}
+
+impl ItemSets {
+    /// Create a new list of item sets.
+    pub fn new(sets: Vec<ItemSet>) -> ItemSets {
+        ItemSets(sets)
+    }
+
+    /// Get the item sets in the grammar.
+    pub fn all(&self) -> &[ItemSet] {
+        &self.0
+    }
+
+    /// Get a pretty printer for this item set.
+    pub fn pretty<'a>(&'a self, grammar: &'a Grammar) -> Pretty<&'a Grammar, &'a Self> {
+        Pretty::new(grammar, self)
+    }
+}
+
+impl<'a> fmt::Display for Pretty<&'a Grammar, &'a ItemSets> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for (is, sep) in self.item.0.iter().zip(once("").chain(repeat("\n"))) {
+            write!(f, "{}{}", sep, is.pretty(self.ctx))?;
+        }
+        Ok(())
+    }
 }
 
 impl ItemSet {

@@ -8,13 +8,13 @@ use bit_set::BitSet;
 
 use grammar::{self, Grammar, NonterminalId, Symbol};
 use first::FirstSets;
-use item_set::{Action, Item, ItemSet};
+use item_set::{Action, Item, ItemSet, ItemSets};
 
 /// Construct the item sets for a grammar.
 #[allow(unused_variables)]
 #[allow(unused_mut)]
 #[allow(unused_assignments)]
-pub fn construct_item_sets(grammar: &Grammar) -> Vec<ItemSet> {
+pub fn construct_item_sets(grammar: &Grammar) -> ItemSets {
     let mut done_list: Vec<ItemSet> = vec![];
     let mut todo_list: Vec<ItemSet> = vec![];
     let mut inc_list: VecDeque<ItemSet> = VecDeque::new();
@@ -143,5 +143,5 @@ pub fn construct_item_sets(grammar: &Grammar) -> Vec<ItemSet> {
         }
     }
 
-    done_list
+    ItemSets::new(done_list)
 }
