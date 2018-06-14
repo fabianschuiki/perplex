@@ -70,6 +70,11 @@ pub fn construct_item_sets(grammar: &Grammar) -> Vec<ItemSet> {
                 let item = item_set.items[i];
                 let symbol = if item.rule == grammar::ACCEPT {
                     if item.marker != 0 {
+                        let action_id = item_set.actions.len();
+                        item_set.item_actions[i].insert(action_id);
+                        item_set
+                            .actions
+                            .push((item.lookahead.into(), Action::Reduce(item.rule)));
                         continue;
                     }
                     &root_symbol
@@ -78,6 +83,11 @@ pub fn construct_item_sets(grammar: &Grammar) -> Vec<ItemSet> {
                     if item.marker < symbols.len() {
                         &symbols[item.marker] // TODO: use proper marker math
                     } else {
+                        let action_id = item_set.actions.len();
+                        item_set.item_actions[i].insert(action_id);
+                        item_set
+                            .actions
+                            .push((item.lookahead.into(), Action::Reduce(item.rule)));
                         continue;
                     }
                 };
