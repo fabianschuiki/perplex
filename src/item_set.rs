@@ -129,6 +129,15 @@ impl ItemSet {
             .collect();
         KernelCores(set.into_iter().collect())
     }
+
+    /// Replace all occurrences of one action with another.
+    pub fn replace_actions(&mut self, from: Action, to: Action) {
+        for &mut (_, ref mut action) in &mut self.actions {
+            if action == &from {
+                *action = to;
+            }
+        }
+    }
 }
 
 impl<'a> fmt::Display for Pretty<&'a Grammar, &'a ItemSet> {
