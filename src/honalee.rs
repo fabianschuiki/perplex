@@ -2,7 +2,7 @@
 
 //! Implementation of the Honalee Algorithm for item set generation.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{BTreeSet, HashMap};
 
 use bit_set::BitSet;
 
@@ -17,7 +17,7 @@ use item_set::{Action, Item, ItemSet, ItemSets, KernelCores};
 pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
     let mut done_list: Vec<ItemSet> = vec![];
     let mut todo_list: Vec<ItemSet> = vec![];
-    let mut inc_list: VecDeque<ItemSet> = VecDeque::new();
+    let mut inc_list: BTreeSet<usize> = BTreeSet::<usize>::new();
     let mut come_from: Option<usize> = None;
     let mut merge_hint: HashMap<KernelCores, Vec<usize>> = HashMap::new();
 
@@ -91,13 +91,32 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                 // Make sure that merging would not produce any conflicts.
             }
             // TODO: try merge, upon fail add to inc_list
-            inc_list.push_back(item_set);
+
+            // Add the item set to the done list and mark it as incomplete.
+            let id = done_list.len();
+            if id != item_set.id {
+                if let Some(come_from) = come_from {
+                    done_list[come_from]
+                        .replace_actions(Action::Shift(item_set.id), Action::Shift(id));
+                    // TODO: visit the come_from set and fix the actions
+                }
+                item_set.id = id;
+            }
+            merge_hint
+                .entry(item_set.kernel_item_cores())
+                .or_insert_with(|| Vec::new())
+                .push(id);
+            done_list.push(item_set);
+            inc_list.insert(id);
+            // inc_list.push_back(item_set);
         }
 
         // Phase 2: For one incomplete item set, compute the transitions and
         // spawn subsequent item sets, which will then be processed in phase 1
         // of the next iteration.
-        if let Some(mut item_set) = inc_list.pop_front() {
+        if let Some(&index) = inc_list.iter().next() {
+            inc_list.remove(&index);
+            let mut item_set = &mut done_list[index];
             println!("phase 2:");
             println!("{}", item_set.pretty(grammar));
 
@@ -166,12 +185,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                 todo_list.push(new_set);
             }
 
-            come_from = Some(done_list.len());
-            merge_hint
-                .entry(item_set.kernel_item_cores())
-                .or_insert_with(|| Vec::new())
-                .push(done_list.len());
-            done_list.push(item_set);
+            come_from = Some(index);
         } else {
             come_from = None;
         }
