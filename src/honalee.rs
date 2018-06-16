@@ -57,7 +57,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                 let item = &mut item_set.items[i];
                 let rule = if item.rule == grammar::ACCEPT {
                     if item.marker == 1 {
-                        RuleId::from_usize(0)
+                        grammar::ACCEPT
                     } else {
                         continue;
                     }
