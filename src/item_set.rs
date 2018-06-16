@@ -41,6 +41,8 @@ pub struct Item {
     pub(crate) lookahead: TerminalId,
     /// The position of the marker within the rule.
     pub(crate) marker: usize,
+    /// The action for this item.
+    pub(crate) action: Option<(Symbol, Action)>,
 }
 
 /// An action to be taken upon encountering a symbol.
@@ -151,6 +153,9 @@ impl<'a> fmt::Display for Pretty<&'a Grammar, &'a ItemSet> {
             if index < self.item.kernel {
                 write!(f, "*")?;
             }
+            if let Some((symbol, action)) = item.action {
+                write!(f, " ({}, {})", symbol.pretty(self.ctx), action)?;
+            }
             if self.item.item_actions.len() > index {
                 for action_id in &self.item.item_actions[index] {
                     let (ref symbol, action) = self.item.actions[action_id];
@@ -239,6 +244,7 @@ fn compute_closure(item_set: &mut ItemSet, grammar: &Grammar, first_sets: &First
                         rule: rule_id,
                         lookahead: item.lookahead,
                         marker: 0,
+                        action: None,
                     };
                     if !done.contains(&new_item) {
                         done.insert(new_item);
@@ -268,6 +274,7 @@ fn compute_closure(item_set: &mut ItemSet, grammar: &Grammar, first_sets: &First
                                 rule: rule_id,
                                 lookahead: TerminalId::from_usize(fs),
                                 marker: 0,
+                                action: None,
                             };
                             if !done.contains(&new_item) {
                                 done.insert(new_item);

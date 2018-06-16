@@ -32,6 +32,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                 rule: grammar::ACCEPT,
                 lookahead: grammar::END,
                 marker: 0,
+                action: None,
             },
         ],
     );
@@ -193,6 +194,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                         rule: item2.rule,
                         lookahead: item2.lookahead,
                         marker: item2.marker + 1,
+                        action: None,
                     });
                     item_set.item_actions[n].insert(action_id);
                     treated.insert(n);
