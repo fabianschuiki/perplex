@@ -45,7 +45,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
         // Phase 1: Calculate the closure over all todo item sets and either
         // merge them with an existing set, or add them to the incomplete list
         // for transition generation.
-        for mut item_set in todo_list.drain(..) {
+        'todo_sets: for mut item_set in todo_list.drain(..) {
             item_set.closure(grammar, &first_sets);
             println!("phase 1: {}", item_set.pretty(grammar));
 
@@ -87,8 +87,28 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                 .iter()
                 .flat_map(|i| i.iter())
             {
-                println!("- maybe can be merged with {}", index);
+                println!("- maybe can be merged with {}", index,);
+                println!("reduce_lookup: {:?}", reduce_lookup);
+                println!("merge_set.actions: {:?}", done_list[index].actions);
+                println!("{}", done_list[index].pretty(grammar));
+
                 // Make sure that merging would not produce any conflicts.
+                let no_conflicts = done_list[index].actions.iter().all(
+                    |&(ref symbol, merge_rule)| match reduce_lookup.get(symbol) {
+                        Some(&rule) if Action::Reduce(rule) != merge_rule => false,
+                        _ => true,
+                    },
+                );
+                if no_conflicts {
+                    println!("  - no conflicts");
+                    if let Some(come_from) = come_from {
+                        done_list[come_from]
+                            .replace_actions(Action::Shift(item_set.id), Action::Shift(index));
+                    }
+                    // done_list[index].merge(item_set);
+                    // inc_list.insert(index);
+                    continue 'todo_sets;
+                }
             }
             // TODO: try merge, upon fail add to inc_list
 
@@ -98,7 +118,6 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                 if let Some(come_from) = come_from {
                     done_list[come_from]
                         .replace_actions(Action::Shift(item_set.id), Action::Shift(id));
-                    // TODO: visit the come_from set and fix the actions
                 }
                 item_set.id = id;
             }
