@@ -52,6 +52,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
 
             // Generate the reduce actions of this item set.
             let mut reduce_lookup: HashMap<Symbol, RuleId> = HashMap::new();
+            let mut todo_has_conflict = false;
             for i in 0..item_set.items.len() {
                 let item = &mut item_set.items[i];
                 let rule = if item.rule == grammar::ACCEPT {
@@ -69,40 +70,42 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                     }
                 };
                 item.action = Some((item.lookahead.into(), Action::Reduce(rule)));
-                reduce_lookup.insert(item.lookahead.into(), rule);
+                todo_has_conflict |= reduce_lookup.insert(item.lookahead.into(), rule).is_some();
             }
 
             // Consider all done item sets with the same kernel item cores as
             // potential candidates to merge this item set into.
-            for &index in merge_hint
-                .get(&item_set.kernel_item_cores())
-                .iter()
-                .flat_map(|i| i.iter())
-            {
-                println!("- maybe can be merged with {}", index,);
-                println!("reduce_lookup: {:?}", reduce_lookup);
-                // println!("merge_set.actions: {:?}", done_list[index].actions);
-                println!("{}", done_list[index].pretty(grammar));
+            if !todo_has_conflict {
+                for &index in merge_hint
+                    .get(&item_set.kernel_item_cores())
+                    .iter()
+                    .flat_map(|i| i.iter())
+                {
+                    println!("- maybe can be merged with {}", index,);
+                    println!("reduce_lookup: {:?}", reduce_lookup);
+                    // println!("merge_set.actions: {:?}", done_list[index].actions);
+                    println!("{}", done_list[index].pretty(grammar));
 
-                // Make sure that merging would not produce any conflicts.
-                let no_conflicts = done_list[index].actions().all(|&(symbol, merge_rule)| {
-                    match reduce_lookup.get(&symbol) {
-                        Some(&rule) if Action::Reduce(rule) != merge_rule => false,
-                        _ => true,
+                    // Make sure that merging would not produce any conflicts.
+                    let no_conflicts = done_list[index].actions().all(|&(symbol, merge_rule)| {
+                        match reduce_lookup.get(&symbol) {
+                            Some(&rule) if Action::Reduce(rule) != merge_rule => false,
+                            _ => true,
+                        }
+                    });
+                    if no_conflicts {
+                        println!("- merging");
+                        if let Some(come_from) = come_from {
+                            done_list[come_from]
+                                .replace_actions(Action::Shift(item_set.id), Action::Shift(index));
+                        }
+                        done_list[index].merge(item_set);
+                        println!("merged: {}", done_list[index].pretty(grammar));
+                        // inc_list.insert(index);
+                        continue 'todo_sets;
                     }
-                });
-                if no_conflicts {
-                    println!("  - no conflicts");
-                    if let Some(come_from) = come_from {
-                        done_list[come_from]
-                            .replace_actions(Action::Shift(item_set.id), Action::Shift(index));
-                    }
-                    // done_list[index].merge(item_set);
-                    // inc_list.insert(index);
-                    continue 'todo_sets;
                 }
             }
-            // TODO: try merge, upon fail add to inc_list
 
             // Add the item set to the done list and mark it as incomplete.
             let id = done_list.len();

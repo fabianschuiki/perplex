@@ -145,6 +145,25 @@ impl ItemSet {
     pub fn actions_mut(&mut self) -> ActionsMut {
         ActionsMut(self.items.iter_mut())
     }
+
+    /// Merge another item set into this.
+    pub fn merge(&mut self, other: ItemSet) {
+        let mut present: HashSet<Item> = self.items
+            .iter()
+            .cloned()
+            .map(|mut item| {
+                item.action = None;
+                item
+            })
+            .collect();
+        for item in other.items {
+            let mut item_na = item;
+            item_na.action = None;
+            if present.insert(item_na) {
+                self.items.push(item);
+            }
+        }
+    }
 }
 
 impl<'a> fmt::Display for Pretty<&'a Grammar, &'a ItemSet> {
