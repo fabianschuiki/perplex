@@ -2,6 +2,7 @@
 
 //! Item sets derived from a grammar.
 
+use std;
 use std::fmt;
 use std::collections::{BTreeSet, HashSet};
 use std::iter::{once, repeat};
@@ -26,10 +27,6 @@ pub struct ItemSet {
     pub(crate) items: Vec<Item>,
     /// The number of kernel items.
     pub(crate) kernel: usize,
-    /// The actions to be taken for different symbols.
-    pub(crate) actions: Vec<(Symbol, Action)>,
-    /// An item-to-action mapping.
-    pub(crate) item_actions: Vec<BitSet>,
 }
 
 /// A single item.
@@ -92,8 +89,6 @@ impl ItemSet {
             id: id,
             items: Vec::new(),
             kernel: 0,
-            actions: Vec::new(),
-            item_actions: Vec::new(),
         }
     }
 
@@ -134,11 +129,21 @@ impl ItemSet {
 
     /// Replace all occurrences of one action with another.
     pub fn replace_actions(&mut self, from: Action, to: Action) {
-        for &mut (_, ref mut action) in &mut self.actions {
-            if action == &from {
+        for &mut (_, ref mut action) in self.actions_mut() {
+            if *action == from {
                 *action = to;
             }
         }
+    }
+
+    /// Get an iterator over the actions in the set.
+    pub fn actions(&self) -> Actions {
+        Actions(self.items.iter())
+    }
+
+    /// Get a mutable iterator over the actions in the set.
+    pub fn actions_mut(&mut self) -> ActionsMut {
+        ActionsMut(self.items.iter_mut())
     }
 }
 
@@ -155,12 +160,6 @@ impl<'a> fmt::Display for Pretty<&'a Grammar, &'a ItemSet> {
             }
             if let Some((symbol, action)) = item.action {
                 write!(f, " ({}, {})", symbol.pretty(self.ctx), action)?;
-            }
-            if self.item.item_actions.len() > index {
-                for action_id in &self.item.item_actions[index] {
-                    let (ref symbol, action) = self.item.actions[action_id];
-                    write!(f, " ({}, {})", symbol.pretty(self.ctx), action)?;
-                }
             }
         }
         if self.item.items.is_empty() {
@@ -322,3 +321,35 @@ where
 /// cores but different order will produce the same KernelCores struct.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KernelCores(Vec<(RuleId, usize)>);
+
+/// An iterator over the actions of an item set.
+pub struct Actions<'a>(std::slice::Iter<'a, Item>);
+
+/// A mutable iterator over the actions of an item set.
+pub struct ActionsMut<'a>(std::slice::IterMut<'a, Item>);
+
+impl<'a> Iterator for Actions<'a> {
+    type Item = &'a (Symbol, Action);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(item) = self.0.next() {
+            if let Some(ref action) = item.action {
+                return Some(action);
+            }
+        }
+        None
+    }
+}
+
+impl<'a> Iterator for ActionsMut<'a> {
+    type Item = &'a mut (Symbol, Action);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(item) = self.0.next() {
+            if let Some(ref mut action) = item.action {
+                return Some(action);
+            }
+        }
+        None
+    }
+}

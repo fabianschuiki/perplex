@@ -50,15 +50,10 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
             item_set.closure(grammar, &first_sets);
             println!("phase 1: {}", item_set.pretty(grammar));
 
-            // Make sure there is a list of actions for each item.
-            item_set
-                .item_actions
-                .resize(item_set.items.len(), BitSet::new());
-
             // Generate the reduce actions of this item set.
             let mut reduce_lookup: HashMap<Symbol, RuleId> = HashMap::new();
             for i in 0..item_set.items.len() {
-                let item = &item_set.items[i];
+                let item = &mut item_set.items[i];
                 let rule = if item.rule == grammar::ACCEPT {
                     if item.marker == 1 {
                         RuleId::from_usize(0)
@@ -73,11 +68,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                         continue;
                     }
                 };
-                let action_id = item_set.actions.len();
-                item_set
-                    .actions
-                    .push((item.lookahead.into(), Action::Reduce(rule)));
-                item_set.item_actions[i].insert(action_id);
+                item.action = Some((item.lookahead.into(), Action::Reduce(rule)));
                 reduce_lookup.insert(item.lookahead.into(), rule);
             }
 
@@ -90,16 +81,16 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
             {
                 println!("- maybe can be merged with {}", index,);
                 println!("reduce_lookup: {:?}", reduce_lookup);
-                println!("merge_set.actions: {:?}", done_list[index].actions);
+                // println!("merge_set.actions: {:?}", done_list[index].actions);
                 println!("{}", done_list[index].pretty(grammar));
 
                 // Make sure that merging would not produce any conflicts.
-                let no_conflicts = done_list[index].actions.iter().all(
-                    |&(ref symbol, merge_rule)| match reduce_lookup.get(symbol) {
+                let no_conflicts = done_list[index].actions().all(|&(symbol, merge_rule)| {
+                    match reduce_lookup.get(&symbol) {
                         Some(&rule) if Action::Reduce(rule) != merge_rule => false,
                         _ => true,
-                    },
-                );
+                    }
+                });
                 if no_conflicts {
                     println!("  - no conflicts");
                     if let Some(come_from) = come_from {
@@ -143,10 +134,10 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
             let root_symbol = Symbol::Nonterminal(NonterminalId::from_usize(0));
             let mut treated = BitSet::with_capacity(item_set.items.len());
             for i in 0..item_set.items.len() {
-                if treated.contains(i) {
+                let item = item_set.items[i];
+                if treated.contains(i) || item.action.is_some() {
                     continue;
                 }
-                let item = item_set.items[i];
                 let symbol = if item.rule == grammar::ACCEPT {
                     if item.marker != 0 {
                         continue;
@@ -164,16 +155,12 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
 
                 let mut new_set = ItemSet::new(tmp_set_id);
                 tmp_set_id += 1;
-                let action_id = item_set.actions.len();
-                item_set
-                    .actions
-                    .push((symbol.clone(), Action::Shift(new_set.id)));
 
                 for n in i..item_set.items.len() {
-                    if treated.contains(n) {
+                    let item2 = &mut item_set.items[n];
+                    if treated.contains(n) || item2.action.is_some() {
                         continue;
                     }
-                    let item2 = item_set.items[n];
                     let symbol2 = if item2.rule == grammar::ACCEPT {
                         if item.marker != 0 {
                             continue;
@@ -196,7 +183,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                         marker: item2.marker + 1,
                         action: None,
                     });
-                    item_set.item_actions[n].insert(action_id);
+                    item2.action = Some((symbol.clone(), Action::Shift(new_set.id)));
                     treated.insert(n);
                 }
 
