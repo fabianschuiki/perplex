@@ -156,11 +156,16 @@ impl ItemSet {
                 item
             })
             .collect();
-        for item in other.items {
+        for (index, item) in other.items.into_iter().enumerate() {
             let mut item_na = item;
             item_na.action = None;
             if present.insert(item_na) {
-                self.items.push(item);
+                if index < other.kernel {
+                    self.items.insert(self.kernel, item);
+                    self.kernel += 1;
+                } else {
+                    self.items.push(item);
+                }
             }
         }
     }
