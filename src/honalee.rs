@@ -101,7 +101,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                         }
                         done_list[index].merge(item_set);
                         println!("merged: {}", done_list[index].pretty(grammar));
-                        // inc_list.insert(index);
+                        inc_list.insert(index);
                         continue 'todo_sets;
                     }
                 }
@@ -122,7 +122,6 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                 .push(id);
             done_list.push(item_set);
             inc_list.insert(id);
-            // inc_list.push_back(item_set);
         }
 
         // Phase 2: For one incomplete item set, compute the transitions and
