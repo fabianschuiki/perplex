@@ -92,7 +92,6 @@ fn compute(grammar: &Grammar) -> FirstSets {
                         new_fs.symbols.union_with(&other.symbols);
                         !other.has_epsilon
                     }
-                    _ => unreachable!(),
                 });
                 new_fs.has_epsilon |= !tight;
             }
@@ -131,11 +130,6 @@ where
         let tight = match *symbol {
             Symbol::Terminal(_) => f(symbol),
             Symbol::Nonterminal(_) => f(symbol),
-            Symbol::Group(ref symbols) => collect_symbols(symbols, f),
-            Symbol::Optional(ref symbol) => {
-                collect_symbols(Some(symbol.as_ref()), f);
-                false
-            }
         };
         if tight {
             return true;
@@ -216,28 +210,6 @@ mod test {
                 FirstSet {
                     symbols: vec![].into_iter().collect(),
                     has_epsilon: true,
-                },
-            ])
-        );
-    }
-
-    #[test]
-    fn optional_terminal() {
-        // A : b? c
-        let mut g = Grammar::new();
-        let ntA = g.add_nonterminal("A");
-        let tb = g.add_terminal("b");
-        let tc = g.add_terminal("c");
-        g.add_rule(Rule::new(
-            ntA,
-            vec![Symbol::Optional(Box::new(tb.into())), tc.into()],
-        ));
-        assert_eq!(
-            FirstSets::compute(&g),
-            FirstSets(vec![
-                FirstSet {
-                    symbols: vec![tb.as_usize(), tc.as_usize()].into_iter().collect(),
-                    has_epsilon: false,
                 },
             ])
         );

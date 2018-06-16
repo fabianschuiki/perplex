@@ -4,7 +4,6 @@
 
 use std;
 use std::fmt;
-use std::iter::{once, repeat};
 use std::collections::HashMap;
 use Pretty;
 
@@ -27,16 +26,12 @@ pub struct Rule {
 }
 
 /// A symbol of a production.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Symbol {
     /// A terminal.
     Terminal(TerminalId),
     /// A nonterminal.
     Nonterminal(NonterminalId),
-    /// A group of symbols.
-    Group(Vec<Symbol>),
-    /// An optional symbol.
-    Optional(Box<Symbol>),
 }
 
 /// A unique nonterminal identifier.
@@ -205,15 +200,6 @@ impl<'a> fmt::Display for Pretty<&'a Grammar, &'a Symbol> {
         match *self.item {
             Symbol::Terminal(id) => write!(f, "{}", id.pretty(self.ctx)),
             Symbol::Nonterminal(id) => write!(f, "{}", id.pretty(self.ctx)),
-            Symbol::Group(ref symbols) => {
-                write!(f, "(")?;
-                for (symbol, sep) in symbols.iter().zip(once("").chain(repeat(" "))) {
-                    write!(f, "{}{}", sep, symbol.pretty(self.ctx))?;
-                }
-                write!(f, ")")?;
-                Ok(())
-            }
-            Symbol::Optional(ref symbol) => write!(f, "{}?", symbol.pretty(self.ctx)),
         }
     }
 }

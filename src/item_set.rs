@@ -276,7 +276,6 @@ fn compute_closure(item_set: &mut ItemSet, grammar: &Grammar, first_sets: &First
                         }
                     }
                 }
-                _ => unimplemented!(),
             }
         }
     }
@@ -305,18 +304,6 @@ where
                     return (set, false);
                 }
             },
-            Symbol::Group(ref symbols) => {
-                let (subset, epsilon) = compute_follow_set(symbols.iter(), grammar, first_sets);
-                set.union_with(&subset);
-                if !epsilon {
-                    return (set, false);
-                }
-            }
-            Symbol::Optional(ref symbol) => {
-                set.union_with(
-                    &compute_follow_set(Some(symbol.as_ref()).into_iter(), grammar, first_sets).0,
-                );
-            }
         }
     }
     (set, true)
