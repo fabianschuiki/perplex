@@ -23,7 +23,7 @@ pub struct ItemSets(Vec<ItemSet>);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ItemSet {
     /// The id of this item set.
-    pub(crate) id: usize,
+    pub(crate) id: ItemSetId,
     /// The items in the set.
     pub(crate) items: Vec<Item>,
     /// The number of kernel items.
@@ -47,10 +47,14 @@ pub struct Item {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Action {
     /// Shift the symbol and go to the given item set.
-    Shift(usize),
+    Shift(ItemSetId),
     /// Reduce with the given rule.
     Reduce(RuleId),
 }
+
+/// A unique item set identifier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ItemSetId(usize);
 
 impl ItemSets {
     /// Create a new list of item sets.
@@ -92,7 +96,7 @@ impl<'a> fmt::Display for Pretty<&'a Grammar, &'a ItemSets> {
 
 impl ItemSet {
     /// Create a new item set.
-    pub fn new(id: usize) -> ItemSet {
+    pub fn new(id: ItemSetId) -> ItemSet {
         ItemSet {
             id: id,
             items: Vec::new(),
@@ -101,11 +105,16 @@ impl ItemSet {
     }
 
     /// Create a new item set with certain items.
-    pub fn with_items(id: usize, items: Vec<Item>) -> ItemSet {
+    pub fn with_items(id: ItemSetId, items: Vec<Item>) -> ItemSet {
         let mut set = ItemSet::new(id);
         set.kernel = items.len();
         set.items = items;
         set
+    }
+
+    /// Get the id of the item set.
+    pub fn id(&self) -> ItemSetId {
+        self.id
     }
 
     /// Get the items in the set.
@@ -326,6 +335,24 @@ impl fmt::Display for Action {
             Action::Reduce(grammar::ACCEPT) => write!(f, "$accept"),
             Action::Reduce(id) => write!(f, "r{}", id.as_usize()),
         }
+    }
+}
+
+impl ItemSetId {
+    /// Create an item set id from a usize.
+    pub fn from_usize(id: usize) -> ItemSetId {
+        ItemSetId(id)
+    }
+
+    /// Obtain the id as a usize.
+    pub fn as_usize(self) -> usize {
+        self.0
+    }
+}
+
+impl fmt::Display for ItemSetId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

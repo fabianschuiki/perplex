@@ -8,7 +8,7 @@ use bit_set::BitSet;
 
 use grammar::{self, Grammar, NonterminalId, RuleId, Symbol};
 use first::FirstSets;
-use item_set::{Action, Item, ItemSet, ItemSets, KernelCores};
+use item_set::{Action, Item, ItemSet, ItemSetId, ItemSets, KernelCores};
 
 /// Construct the item sets for a grammar.
 pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
@@ -23,7 +23,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
 
     // Create the initial item set.
     let initial = ItemSet::with_items(
-        0,
+        ItemSetId::from_usize(0),
         vec![
             Item {
                 rule: grammar::ACCEPT,
@@ -92,8 +92,10 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                     if no_conflicts {
                         // println!("- merging");
                         if let Some(come_from) = come_from {
-                            done_list[come_from]
-                                .replace_actions(Action::Shift(item_set.id), Action::Shift(index));
+                            done_list[come_from].replace_actions(
+                                Action::Shift(item_set.id),
+                                Action::Shift(ItemSetId::from_usize(index)),
+                            );
                         }
                         done_list[index].merge(item_set);
                         // println!("merged: {}", done_list[index].pretty(grammar));
@@ -104,7 +106,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
             }
 
             // Add the item set to the done list and mark it as incomplete.
-            let id = done_list.len();
+            let id = ItemSetId::from_usize(done_list.len());
             if id != item_set.id {
                 if let Some(come_from) = come_from {
                     done_list[come_from]
@@ -115,9 +117,9 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
             merge_hint
                 .entry(item_set.kernel_item_cores())
                 .or_insert_with(|| Vec::new())
-                .push(id);
+                .push(id.as_usize());
             done_list.push(item_set);
-            inc_list.insert(id);
+            inc_list.insert(id.as_usize());
         }
 
         // Phase 2: For one incomplete item set, compute the transitions and
@@ -151,7 +153,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                 };
                 // println!("- shift {}", symbol.pretty(grammar));
 
-                let mut new_set = ItemSet::new(next_id);
+                let mut new_set = ItemSet::new(ItemSetId::from_usize(next_id));
                 next_id += 1;
 
                 for n in i..item_set.items.len() {
