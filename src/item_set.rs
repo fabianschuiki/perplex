@@ -4,6 +4,7 @@
 
 use std;
 use std::fmt;
+use std::ops::{Index, IndexMut};
 use std::collections::{BTreeSet, HashSet};
 use std::iter::{once, repeat};
 use std::mem::replace;
@@ -82,6 +83,20 @@ impl ItemSets {
         for is in &mut self.0 {
             is.compress();
         }
+    }
+}
+
+impl Index<ItemSetId> for ItemSets {
+    type Output = ItemSet;
+
+    fn index(&self, index: ItemSetId) -> &ItemSet {
+        &self.0[index.as_usize()]
+    }
+}
+
+impl IndexMut<ItemSetId> for ItemSets {
+    fn index_mut(&mut self, index: ItemSetId) -> &mut ItemSet {
+        &mut self.0[index.as_usize()]
     }
 }
 
