@@ -52,6 +52,13 @@ pub const ACCEPT: RuleId = RuleId(std::usize::MAX);
 /// The special end of input terminal `$end`.
 pub const END: TerminalId = TerminalId(0);
 
+/// The special *don't care*/nil terminal `#`.
+pub const NIL: TerminalId = TerminalId(1);
+
+/// The lowest ID a user-defined terminal can have. This is the first index
+/// after all the builtin terminals.
+const LOWEST_TERMINAL_ID: usize = 2;
+
 /// An iterator over the rules of a grammar.
 pub type RulesIter<'a> = std::slice::Iter<'a, Rule>;
 
@@ -88,7 +95,7 @@ impl Grammar {
     /// Add a terminal.
     pub fn add_terminal<S: Into<String>>(&mut self, name: S) -> TerminalId {
         let name = name.into();
-        let next_id = TerminalId(self.term_names.len() + 1);
+        let next_id = TerminalId(self.term_names.len() + LOWEST_TERMINAL_ID);
         if let Some(&id) = self.terms.get(&name) {
             id
         } else {
@@ -105,10 +112,10 @@ impl Grammar {
 
     /// Get the name of a terminal.
     pub fn terminal_name(&self, id: TerminalId) -> &str {
-        if id == END {
-            "$end"
-        } else {
-            &self.term_names[id.as_usize() - 1]
+        match id {
+            END => "$end",
+            NIL => "#",
+            _ => &self.term_names[id.as_usize() - LOWEST_TERMINAL_ID],
         }
     }
 
@@ -125,7 +132,7 @@ impl Grammar {
     /// Basically returns the largest terminal ID + 1. Can be used as capacity
     /// for containers that will hold terminals.
     pub fn terminal_id_bound(&self) -> usize {
-        self.term_names.len() + 1
+        self.term_names.len() + LOWEST_TERMINAL_ID
     }
 
     /// Add a rule to the grammar.
