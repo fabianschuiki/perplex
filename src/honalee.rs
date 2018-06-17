@@ -197,5 +197,8 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
         }
     }
 
-    ItemSets::new(done_list)
+    // Compress the item sets.
+    let mut sets = ItemSets::new(done_list);
+    sets.compress();
+    sets
 }

@@ -11,7 +11,8 @@ This is *perplex*, a grammar analyzer and parser generator for almost-context-fr
 ## Todo
 
 - [x] item set generation
-- [ ] item set merging/compression
+- [x] item set merging/compression
+- [ ] conflict reporting
 - [ ] state space computation
 - [ ] separate extended grammar with symbol groups, optional symbols, repetitions
 - [ ] generalization to CFG, tiered parsing

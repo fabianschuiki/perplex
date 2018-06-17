@@ -6,6 +6,7 @@ use std;
 use std::fmt;
 use std::collections::{BTreeSet, HashSet};
 use std::iter::{once, repeat};
+use std::mem::replace;
 
 use bit_set::BitSet;
 
@@ -70,6 +71,13 @@ impl ItemSets {
     /// Get a pretty printer for this item set.
     pub fn pretty<'a>(&'a self, grammar: &'a Grammar) -> Pretty<&'a Grammar, &'a Self> {
         Pretty::new(grammar, self)
+    }
+
+    /// Compress all item sets.
+    pub fn compress(&mut self) {
+        for is in &mut self.0 {
+            is.compress();
+        }
     }
 }
 
@@ -169,6 +177,27 @@ impl ItemSet {
             }
         }
     }
+
+    /// Compress the item set.
+    ///
+    /// This will remove redundant items and replace their lookahead token with
+    /// a `#`.
+    pub fn compress(&mut self) {
+        let mut present = HashSet::<Item>::new();
+        let items = replace(&mut self.items, Vec::new());
+        let kernel = replace(&mut self.kernel, 0);
+        for (index, mut item) in items.into_iter().enumerate() {
+            if item.is_shift() {
+                item.lookahead = grammar::NIL;
+            }
+            if present.insert(item) {
+                if index < kernel {
+                    self.kernel += 1;
+                }
+                self.items.push(item);
+            }
+        }
+    }
 }
 
 impl<'a> fmt::Display for Pretty<&'a Grammar, &'a ItemSet> {
@@ -209,9 +238,38 @@ impl Item {
         self.marker
     }
 
+    /// Get the action associated with this item.
+    pub fn action(&self) -> Option<(Symbol, Action)> {
+        self.action
+    }
+
+    /// Change the action of this item.
+    pub fn set_action(&mut self, action: Option<(Symbol, Action)>) {
+        self.action = action
+    }
+
     /// Get a pretty printer for this item.
     pub fn pretty<'a>(&'a self, grammar: &'a Grammar) -> Pretty<&'a Grammar, &'a Self> {
         Pretty::new(grammar, self)
+    }
+
+    /// Whether this item has a shift action.
+    pub fn is_shift(&self) -> bool {
+        self.action
+            .map(|(_, action)| action.is_shift())
+            .unwrap_or(false)
+    }
+
+    /// Whether this item has a reduce action.
+    pub fn is_reduce(&self) -> bool {
+        self.action
+            .map(|(_, action)| action.is_reduce())
+            .unwrap_or(false)
+    }
+
+    /// Whether this item has an action.
+    pub fn has_action(&self) -> bool {
+        self.action.is_some()
     }
 }
 
@@ -240,6 +298,24 @@ impl<'a> fmt::Display for Pretty<&'a Grammar, &'a Item> {
         }
         write!(f, ", {}]", self.item.lookahead.pretty(self.ctx))?;
         Ok(())
+    }
+}
+
+impl Action {
+    /// Whether this is a shift action.
+    pub fn is_shift(&self) -> bool {
+        match *self {
+            Action::Shift(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Whether this is a reduce action.
+    pub fn is_reduce(&self) -> bool {
+        match *self {
+            Action::Reduce(_) => true,
+            _ => false,
+        }
     }
 }
 
