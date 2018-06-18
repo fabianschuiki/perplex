@@ -10,6 +10,7 @@ pub mod grammar;
 pub mod first;
 pub mod item_set;
 mod honalee;
+pub mod machine;
 
 /// A pretty printer.
 pub struct Pretty<C, T> {
