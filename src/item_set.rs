@@ -209,16 +209,16 @@ impl ItemSet {
     pub fn compress(&mut self) {
         let mut present = HashSet::<Item>::new();
         let items = replace(&mut self.items, Vec::new());
-        let kernel = replace(&mut self.kernel, 0);
         for (index, mut item) in items.into_iter().enumerate() {
-            if item.is_shift() {
-                item.lookahead = grammar::NIL;
-            }
-            if present.insert(item) {
-                if index < kernel {
-                    self.kernel += 1;
-                }
+            if index < self.kernel {
                 self.items.push(item);
+            } else {
+                if item.is_shift() {
+                    item.lookahead = grammar::NIL;
+                }
+                if present.insert(item) {
+                    self.items.push(item);
+                }
             }
         }
     }
