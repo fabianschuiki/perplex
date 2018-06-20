@@ -9,8 +9,9 @@ extern crate bit_set;
 pub mod grammar;
 pub mod first;
 pub mod item_set;
-mod honalee;
 pub mod machine;
+pub mod backend;
+mod honalee;
 
 /// A pretty printer.
 pub struct Pretty<C, T> {
