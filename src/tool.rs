@@ -3,10 +3,13 @@
 extern crate clap;
 extern crate perplex;
 
+use std::fs::File;
+
 use clap::App;
 use perplex::grammar::{Grammar, Rule};
 use perplex::item_set::ItemSets;
 use perplex::machine::StateMachine;
+use perplex::backend::{generate_parser, Backend};
 
 #[allow(non_snake_case)]
 #[allow(unused_variables)]
@@ -43,9 +46,17 @@ fn main() {
     println!("item sets:");
     println!("{}", is.pretty(&g));
 
-    // TODO: Create the state machine from the item sets.
+    // Create the state machine from the item sets.
     let sm = StateMachine::try_from(&is).expect("unable to create state machine");
 
-    // TODO: Create a backend with proper names for the symbols.
-    // TODO: Run code generation on the backend.
+    // Create a backend with proper names for the symbols.
+    let backend = Backend::new();
+
+    // Run code generation on the backend.
+    generate_parser(
+        &mut File::create("/tmp/perplex_parser.rs").unwrap(),
+        &backend,
+        &sm,
+        &g,
+    ).expect("codegen failed");
 }
