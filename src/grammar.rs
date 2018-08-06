@@ -26,7 +26,7 @@ pub struct Rule {
 }
 
 /// A symbol of a production.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Symbol {
     /// A terminal.
     Terminal(TerminalId),
