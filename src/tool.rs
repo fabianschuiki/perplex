@@ -6,6 +6,7 @@ extern crate perplex;
 use clap::App;
 use perplex::grammar::{Grammar, Rule};
 use perplex::item_set::ItemSets;
+use perplex::machine::StateMachine;
 
 #[allow(non_snake_case)]
 #[allow(unused_variables)]
@@ -41,4 +42,10 @@ fn main() {
     let is = ItemSets::compute(&g);
     println!("item sets:");
     println!("{}", is.pretty(&g));
+
+    // TODO: Create the state machine from the item sets.
+    let sm = StateMachine::try_from(&is).expect("unable to create state machine");
+
+    // TODO: Create a backend with proper names for the symbols.
+    // TODO: Run code generation on the backend.
 }
