@@ -38,9 +38,9 @@ fn main() {
     // Generate the parser code.
     let sm = StateMachine::try_from(&is).unwrap();
     let mut backend = Backend::new();
-    backend.add_nonterminal(ntS, "Ast::S");
-    backend.add_nonterminal(ntA, "Ast::A");
-    backend.add_nonterminal(ntB, "Ast::B");
+    backend.add_nonterminal(ntS, "NodeS");
+    backend.add_nonterminal(ntA, "NodeA");
+    backend.add_nonterminal(ntB, "NodeB");
     backend.add_terminal(grammar::END, "Token::Eof");
     backend.add_terminal(ta, "Token::A");
     backend.add_terminal(tb, "Token::B");
