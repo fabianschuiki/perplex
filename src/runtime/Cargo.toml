@@ -1,0 +1,9 @@
+[package]
+name = "perplex-runtime"
+version = "0.1.0"
+authors = ["Fabian Schuiki <fabian@schuiki.ch>"]
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
