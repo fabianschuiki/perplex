@@ -1,8 +1,12 @@
 // Copyright (c) 2018 Fabian Schuiki
 extern crate perplex;
 
+use std::fs::File;
+
 use perplex::grammar::{Grammar, Rule};
 use perplex::item_set::ItemSets;
+use perplex::machine::StateMachine;
+use perplex::backend::{generate_parser, Backend};
 
 #[allow(non_snake_case)]
 fn main() {
@@ -26,7 +30,17 @@ fn main() {
         vec![ntFactor.into(), tplus.into(), tnum.into()],
     ));
 
-    // Compute the first sets for the grammar.
+    // Compute the item sets for the grammar.
     let is = ItemSets::compute(&g);
     println!("{}", is.pretty(&g));
+
+    // Generate the parser code.
+    // let sm = StateMachine::try_from(&is).unwrap();
+    // let backend = Backend::new();
+    // generate_parser(
+    //     &mut File::create("tests/generated/tribble2_parser.rs").unwrap(),
+    //     &backend,
+    //     &sm,
+    //     &g,
+    // ).unwrap();
 }
