@@ -4,6 +4,7 @@
 
 use std;
 use std::fmt;
+use std::ops::{Index, IndexMut};
 use std::collections::HashMap;
 use Pretty;
 
@@ -160,6 +161,26 @@ impl Grammar {
             panic!("rule() called for builtin ACCEPT rule");
         }
         &self.rules[id.as_usize()]
+    }
+}
+
+impl Index<RuleId> for Grammar {
+    type Output = Rule;
+
+    fn index(&self, index: RuleId) -> &Rule {
+        if index == ACCEPT {
+            panic!("cannot index builtin ACCEPT rule");
+        }
+        &self.rules[index.as_usize()]
+    }
+}
+
+impl IndexMut<RuleId> for Grammar {
+    fn index_mut(&mut self, index: RuleId) -> &mut Rule {
+        if index == ACCEPT {
+            panic!("cannot index builtin ACCEPT rule");
+        }
+        &mut self.rules[index.as_usize()]
     }
 }
 
