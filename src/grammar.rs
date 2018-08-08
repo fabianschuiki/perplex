@@ -137,9 +137,11 @@ impl Grammar {
     }
 
     /// Add a rule to the grammar.
-    pub fn add_rule(&mut self, rule: Rule) {
-        self.nonterm_rules[rule.name().as_usize()].push(RuleId::from_usize(self.rules.len()));
+    pub fn add_rule(&mut self, rule: Rule) -> RuleId {
+        let id = RuleId::from_usize(self.rules.len());
+        self.nonterm_rules[rule.name().as_usize()].push(id);
         self.rules.push(rule);
+        id
     }
 
     /// The rules in this grammar.

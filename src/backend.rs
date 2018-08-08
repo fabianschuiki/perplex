@@ -151,10 +151,10 @@ pub fn generate_parser<W: Write>(
         write!(into, "    }}\n")?;
     }
     write!(into, "}}\n")?;
-    write!(into, "\nimpl std::fmt::Debug for Nonterminal {{\n")?;
+    write!(into, "\nimpl ::std::fmt::Debug for Nonterminal {{\n")?;
     write!(
         into,
-        "    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {{\n"
+        "    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {{\n"
     )?;
     write!(into, "        match *self {{\n")?;
     for ntid in 0..grammar.nonterminal_id_bound() {
@@ -169,6 +169,8 @@ pub fn generate_parser<W: Write>(
     write!(into, "        }}\n")?;
     write!(into, "    }}\n")?;
     write!(into, "}}\n")?;
+
+    let parser_constraint = format!("P: Parser<Terminal = Terminal, Nonterminal = Nonterminal>");
 
     for state in machine.states() {
         let mut ta: Vec<_> = state
@@ -189,11 +191,11 @@ pub fn generate_parser<W: Write>(
 
         write!(
             into,
-            "\nfn {}<P: Parser>(p: &mut P) {{\n",
-            cache.state_fn_name(state.id())
+            "\nfn {}<P>(p: &mut P) where {} {{\n",
+            cache.state_fn_name(state.id()),
+            parser_constraint,
         )?;
-        write!(into, "    let token = p.peek();\n")?;
-        write!(into, "    match token {{\n")?;
+        write!(into, "    match *p.peek() {{\n")?;
         for (tid, action) in ta {
             match action {
                 Action::Shift(target_state) => {
@@ -251,8 +253,9 @@ pub fn generate_parser<W: Write>(
 
         write!(
             into,
-            "\nfn {}<P: Parser>(p: &mut P, nt: Nonterminal) {{\n",
-            cache.reduced_fn_name(state.id())
+            "\nfn {}<P>(p: &mut P, nt: Nonterminal) where {} {{\n",
+            cache.reduced_fn_name(state.id()),
+            parser_constraint,
         )?;
         write!(into, "    match nt {{\n")?;
         for (ntid, action) in nta {

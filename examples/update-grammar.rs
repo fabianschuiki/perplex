@@ -28,23 +28,23 @@ fn main() {
     let t_pipe = g.add_terminal("'|'");
 
     // desc : desc item | item | desc ';' | ';' ;
-    g.add_rule(Rule::new(nt_desc, vec![nt_desc.into(), nt_item.into()]));
-    g.add_rule(Rule::new(nt_desc, vec![nt_item.into()]));
-    g.add_rule(Rule::new(nt_desc, vec![nt_desc.into(), t_semicolon.into()]));
-    g.add_rule(Rule::new(nt_desc, vec![t_semicolon.into()]));
+    let r_desc_a = g.add_rule(Rule::new(nt_desc, vec![nt_desc.into(), nt_item.into()]));
+    let r_desc_b = g.add_rule(Rule::new(nt_desc, vec![nt_item.into()]));
+    let r_desc_c = g.add_rule(Rule::new(nt_desc, vec![nt_desc.into(), t_semicolon.into()]));
+    let r_desc_d = g.add_rule(Rule::new(nt_desc, vec![t_semicolon.into()]));
 
     // item : token_decl | rule_decl ;
-    g.add_rule(Rule::new(nt_item, vec![nt_token_decl.into()]));
-    g.add_rule(Rule::new(nt_item, vec![nt_rule_decl.into()]));
+    let r_item_a = g.add_rule(Rule::new(nt_item, vec![nt_token_decl.into()]));
+    let r_item_b = g.add_rule(Rule::new(nt_item, vec![nt_rule_decl.into()]));
 
     // token_decl : 'token' IDENT ';' ;
-    g.add_rule(Rule::new(
+    let r_token_decl = g.add_rule(Rule::new(
         nt_token_decl,
         vec![t_kw_token.into(), t_ident.into(), t_semicolon.into()],
     ));
 
     // rule_decl : IDENT ':' rule_list ';' ;
-    g.add_rule(Rule::new(
+    let r_rule_decl = g.add_rule(Rule::new(
         nt_rule_decl,
         vec![
             t_ident.into(),
@@ -55,11 +55,11 @@ fn main() {
     ));
 
     // rule_list : rule_list '|' IDENT | IDENT ;
-    g.add_rule(Rule::new(
+    let r_rule_list_a = g.add_rule(Rule::new(
         nt_rule_list,
         vec![nt_rule_list.into(), t_pipe.into(), t_ident.into()],
     ));
-    g.add_rule(Rule::new(nt_rule_list, vec![t_ident.into()]));
+    let r_rule_list_b = g.add_rule(Rule::new(nt_rule_list, vec![t_ident.into()]));
 
     // Compute the item sets for the grammar.
     let is = ItemSets::compute(&g);
@@ -83,6 +83,17 @@ fn main() {
     backend.add_terminal(t_comma, "Some(Token::Comma)");
     backend.add_terminal(t_semicolon, "Some(Token::Semicolon)");
     backend.add_terminal(t_pipe, "Some(Token::Pipe)");
+
+    backend.add_reduction_function(r_desc_a, "reduce_desc_a");
+    backend.add_reduction_function(r_desc_b, "reduce_desc_b");
+    backend.add_reduction_function(r_desc_c, "reduce_desc_c");
+    backend.add_reduction_function(r_desc_d, "reduce_desc_d");
+    backend.add_reduction_function(r_item_a, "reduce_item_a");
+    backend.add_reduction_function(r_item_b, "reduce_item_b");
+    backend.add_reduction_function(r_token_decl, "reduce_token_decl");
+    backend.add_reduction_function(r_rule_decl, "reduce_rule_decl");
+    backend.add_reduction_function(r_rule_list_a, "reduce_rule_list_a");
+    backend.add_reduction_function(r_rule_list_b, "reduce_rule_list_b");
 
     // Generate the parser code.
     let mut path = PathBuf::from(file!());

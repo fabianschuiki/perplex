@@ -5,6 +5,7 @@
 #![deny(missing_docs)]
 
 extern crate bit_set;
+extern crate perplex_runtime;
 
 pub mod grammar;
 pub mod first;
@@ -13,6 +14,7 @@ pub mod machine;
 pub mod backend;
 mod honalee;
 pub mod lexer;
+pub mod parser;
 
 /// A pretty printer.
 pub struct Pretty<C, T> {
