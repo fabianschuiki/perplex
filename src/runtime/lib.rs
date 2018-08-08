@@ -217,10 +217,6 @@ where
     }
 }
 
-// fn final_goto<I: ParserInput, S: StateSpace>(_: &mut ParserMachine<I, S>, _: S::Nonterminal) {
-//     unreachable!();
-// }
-
 /// An stream of tokens that can be used as parser input.
 pub trait ParserInput {
     /// The token type produced by the stream.

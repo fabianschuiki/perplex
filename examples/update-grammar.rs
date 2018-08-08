@@ -18,6 +18,7 @@ fn main() {
     let nt_token_decl = g.add_nonterminal("token_decl");
     let nt_rule_decl = g.add_nonterminal("rule_decl");
     let nt_rule_list = g.add_nonterminal("rule_list");
+    let nt_sequence = g.add_nonterminal("sequence");
 
     let t_ident = g.add_terminal("IDENT");
     let t_kw_token = g.add_terminal("'token'");
@@ -54,12 +55,19 @@ fn main() {
         ],
     ));
 
-    // rule_list : rule_list '|' IDENT | IDENT ;
+    // rule_list : rule_list '|' sequence | sequence ;
     let r_rule_list_a = g.add_rule(Rule::new(
         nt_rule_list,
-        vec![nt_rule_list.into(), t_pipe.into(), t_ident.into()],
+        vec![nt_rule_list.into(), t_pipe.into(), nt_sequence.into()],
     ));
-    let r_rule_list_b = g.add_rule(Rule::new(nt_rule_list, vec![t_ident.into()]));
+    let r_rule_list_b = g.add_rule(Rule::new(nt_rule_list, vec![nt_sequence.into()]));
+
+    // sequence : sequence IDENT | IDENT ;
+    let r_sequence_a = g.add_rule(Rule::new(
+        nt_sequence,
+        vec![nt_sequence.into(), t_ident.into()],
+    ));
+    let r_sequence_b = g.add_rule(Rule::new(nt_sequence, vec![t_ident.into()]));
 
     // Compute the item sets for the grammar.
     let is = ItemSets::compute(&g);
@@ -69,11 +77,12 @@ fn main() {
     // Configure the code generation backend.
     let mut backend = Backend::new();
 
-    backend.add_nonterminal(nt_desc, "()");
-    backend.add_nonterminal(nt_item, "()");
-    backend.add_nonterminal(nt_token_decl, "()");
-    backend.add_nonterminal(nt_rule_decl, "()");
-    backend.add_nonterminal(nt_rule_list, "()");
+    backend.add_nonterminal(nt_desc, "Desc");
+    backend.add_nonterminal(nt_item, "Item");
+    backend.add_nonterminal(nt_token_decl, "TokenDecl");
+    backend.add_nonterminal(nt_rule_decl, "RuleDecl");
+    backend.add_nonterminal(nt_rule_list, "Vec<Vec<String>>");
+    backend.add_nonterminal(nt_sequence, "Vec<String>");
 
     backend.add_terminal(grammar::END, "None");
     backend.add_terminal(t_ident, "Some(Token::Ident(_))");
@@ -94,6 +103,8 @@ fn main() {
     backend.add_reduction_function(r_rule_decl, "reduce_rule_decl");
     backend.add_reduction_function(r_rule_list_a, "reduce_rule_list_a");
     backend.add_reduction_function(r_rule_list_b, "reduce_rule_list_b");
+    backend.add_reduction_function(r_sequence_a, "reduce_sequence_a");
+    backend.add_reduction_function(r_sequence_b, "reduce_sequence_b");
 
     // Generate the parser code.
     let mut path = PathBuf::from(file!());

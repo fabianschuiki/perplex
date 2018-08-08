@@ -1,12 +1,12 @@
 // Copyright (c) 2018 Fabian Schuiki
 extern crate perplex;
 
-use std::fs::File;
+// use std::fs::File;
 
 use perplex::grammar::{Grammar, Rule};
 use perplex::item_set::ItemSets;
-use perplex::machine::StateMachine;
-use perplex::backend::{generate_parser, Backend};
+// use perplex::machine::StateMachine;
+// use perplex::backend::{generate_parser, Backend};
 
 #[allow(non_snake_case)]
 fn main() {

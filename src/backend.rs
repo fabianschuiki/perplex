@@ -247,7 +247,10 @@ pub fn generate_parser<W: Write>(
                 }
             }
         }
-        write!(into, "        _ => panic!(\"syntax error\"),\n")?;
+        write!(
+            into,
+            "        _ => panic!(\"syntax error, unexpected {{:?}}\", p.peek()),\n"
+        )?;
         write!(into, "    }};\n")?;
         write!(into, "}}\n")?;
 

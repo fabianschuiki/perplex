@@ -11,26 +11,112 @@ type Terminal = Option<Token>;
 
 include!("parser_states.rs");
 
-fn reduce_desc_a(desc: (), item: ()) {}
-fn reduce_desc_b(item: ()) {}
-fn reduce_desc_c(desc: (), _semicolon: Option<Token>) {}
-fn reduce_desc_d(_semicolon: Option<Token>) {}
+#[derive(Debug)]
+struct Desc {
+    tokens: Vec<TokenDecl>,
+    rules: Vec<RuleDecl>,
+}
 
-fn reduce_item_a(token_decl: ()) {}
-fn reduce_item_b(rule_decl: ()) {}
+#[derive(Debug)]
+enum Item {
+    TokenDecl(TokenDecl),
+    RuleDecl(RuleDecl),
+}
 
-fn reduce_token_decl(_keyword: Option<Token>, name: Option<Token>, _semicolon: Option<Token>) {}
+#[derive(Debug)]
+struct TokenDecl {
+    name: String,
+}
+
+#[derive(Debug)]
+struct RuleDecl {
+    name: String,
+    variants: Vec<Vec<String>>,
+}
+
+fn reduce_desc_a(mut desc: Desc, item: Item) -> Desc {
+    match item {
+        Item::TokenDecl(d) => desc.tokens.push(d),
+        Item::RuleDecl(d) => desc.rules.push(d),
+    }
+    desc
+}
+
+fn reduce_desc_b(item: Item) -> Desc {
+    match item {
+        Item::TokenDecl(d) => Desc {
+            tokens: vec![d],
+            rules: vec![],
+        },
+        Item::RuleDecl(d) => Desc {
+            tokens: vec![],
+            rules: vec![d],
+        },
+    }
+}
+
+fn reduce_desc_c(desc: Desc, _semicolon: Option<Token>) -> Desc {
+    desc
+}
+
+fn reduce_desc_d(_semicolon: Option<Token>) -> Desc {
+    Desc {
+        tokens: vec![],
+        rules: vec![],
+    }
+}
+
+fn reduce_item_a(token_decl: TokenDecl) -> Item {
+    Item::TokenDecl(token_decl)
+}
+
+fn reduce_item_b(rule_decl: RuleDecl) -> Item {
+    Item::RuleDecl(rule_decl)
+}
+
+fn reduce_token_decl(
+    _keyword: Option<Token>,
+    name: Option<Token>,
+    _semicolon: Option<Token>,
+) -> TokenDecl {
+    TokenDecl {
+        name: name.unwrap().unwrap_ident(),
+    }
+}
 
 fn reduce_rule_decl(
     name: Option<Token>,
     _colon: Option<Token>,
-    list: (),
+    list: Vec<Vec<String>>,
     _semicolon: Option<Token>,
-) {
+) -> RuleDecl {
+    RuleDecl {
+        name: name.unwrap().unwrap_ident(),
+        variants: list,
+    }
 }
 
-fn reduce_rule_list_a(list: (), _pipe: Option<Token>, symbol: Option<Token>) {}
-fn reduce_rule_list_b(symbol: Option<Token>) {}
+fn reduce_rule_list_a(
+    mut list: Vec<Vec<String>>,
+    _pipe: Option<Token>,
+    seq: Vec<String>,
+) -> Vec<Vec<String>> {
+    list.push(seq);
+    list
+}
+
+fn reduce_rule_list_b(seq: Vec<String>) -> Vec<Vec<String>> {
+    vec![seq]
+}
+
+fn reduce_sequence_a(mut seq: Vec<String>, symbol: Option<Token>) -> Vec<String> {
+    seq.push(symbol.unwrap().unwrap_ident());
+    seq
+}
+
+fn reduce_sequence_b(symbol: Option<Token>) -> Vec<String> {
+    vec![symbol.unwrap().unwrap_ident()]
+}
 
 struct StateSpace;
 
@@ -54,7 +140,8 @@ type CoreParser<I> = ::perplex_runtime::ParserMachine<I, StateSpace>;
 
 /// Parse a sequence of tokens given by an iterator.
 pub fn parse_iter<I: Iterator<Item = Token>>(input: I) -> () {
-    CoreParser::from_iter(input).run().unwrap_nt0()
+    let desc = CoreParser::from_iter(input).run().unwrap_nt0();
+    println!("parsed {:#?}", desc);
 }
 
 #[cfg(test)]

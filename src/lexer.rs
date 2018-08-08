@@ -20,6 +20,18 @@ pub enum Token {
     Pipe,
 }
 
+impl Token {
+    /// Return the identifier.
+    ///
+    /// Panics if the token is not an identifier.
+    pub fn unwrap_ident(self) -> String {
+        match self {
+            Token::Ident(i) => i,
+            _ => panic!("token {:?} is not an identifier", self),
+        }
+    }
+}
+
 /// The keywords that may appear in a grammar description.
 #[allow(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
