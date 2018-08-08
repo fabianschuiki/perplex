@@ -22,6 +22,7 @@ fn main() {
 
     let t_ident = g.add_terminal("IDENT");
     let t_kw_token = g.add_terminal("'token'");
+    let t_kw_epsilon = g.add_terminal("'epsilon'");
     let t_period = g.add_terminal("'.'");
     let t_colon = g.add_terminal("':'");
     let t_comma = g.add_terminal("','");
@@ -55,12 +56,17 @@ fn main() {
         ],
     ));
 
-    // rule_list : rule_list '|' sequence | sequence ;
+    // rule_list : rule_list '|' sequence | sequence | rule_list '|' 'epsilon' | 'epsilon';
     let r_rule_list_a = g.add_rule(Rule::new(
         nt_rule_list,
         vec![nt_rule_list.into(), t_pipe.into(), nt_sequence.into()],
     ));
     let r_rule_list_b = g.add_rule(Rule::new(nt_rule_list, vec![nt_sequence.into()]));
+    let r_rule_list_c = g.add_rule(Rule::new(
+        nt_rule_list,
+        vec![nt_rule_list.into(), t_pipe.into(), t_kw_epsilon.into()],
+    ));
+    let r_rule_list_d = g.add_rule(Rule::new(nt_rule_list, vec![t_kw_epsilon.into()]));
 
     // sequence : sequence IDENT | IDENT ;
     let r_sequence_a = g.add_rule(Rule::new(
@@ -87,6 +93,7 @@ fn main() {
     backend.add_terminal(grammar::END, "None");
     backend.add_terminal(t_ident, "Some(Token::Ident(_))");
     backend.add_terminal(t_kw_token, "Some(Token::Keyword(Keyword::Token))");
+    backend.add_terminal(t_kw_epsilon, "Some(Token::Keyword(Keyword::Epsilon))");
     backend.add_terminal(t_period, "Some(Token::Period)");
     backend.add_terminal(t_colon, "Some(Token::Colon)");
     backend.add_terminal(t_comma, "Some(Token::Comma)");
@@ -103,6 +110,8 @@ fn main() {
     backend.add_reduction_function(r_rule_decl, "reduce_rule_decl");
     backend.add_reduction_function(r_rule_list_a, "reduce_rule_list_a");
     backend.add_reduction_function(r_rule_list_b, "reduce_rule_list_b");
+    backend.add_reduction_function(r_rule_list_c, "reduce_rule_list_c");
+    backend.add_reduction_function(r_rule_list_d, "reduce_rule_list_d");
     backend.add_reduction_function(r_sequence_a, "reduce_sequence_a");
     backend.add_reduction_function(r_sequence_b, "reduce_sequence_b");
 

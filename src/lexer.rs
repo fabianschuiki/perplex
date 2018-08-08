@@ -37,6 +37,7 @@ impl Token {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Keyword {
     Token,
+    Epsilon,
 }
 
 /// A lexer for perplex grammar descriptions.
@@ -114,6 +115,7 @@ impl<T: Iterator<Item = (usize, char)>> Iterator for Lexer<T> {
                 }
                 match buffer.as_str() {
                     "token" => Token::Keyword(Keyword::Token),
+                    "epsilon" => Token::Keyword(Keyword::Epsilon),
                     _ => Token::Ident(buffer),
                 }
             }

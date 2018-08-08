@@ -14,7 +14,7 @@ include!("parser_states.rs");
 /// The abstract syntax tree of a grammar description.
 pub mod ast {
     /// The root node of a grammar description.
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     pub struct Desc {
         /// The token declarations.
         pub tokens: Vec<TokenDecl>,
@@ -24,21 +24,21 @@ pub mod ast {
 
     /// An item in the grammar description.
     #[allow(missing_docs)]
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     pub enum Item {
         TokenDecl(TokenDecl),
         RuleDecl(RuleDecl),
     }
 
     /// A token declaration.
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     pub struct TokenDecl {
         /// The name of the token.
         pub name: String,
     }
 
     /// A rule declaration.
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     pub struct RuleDecl {
         /// The name of the rule.
         pub name: String,
@@ -122,6 +122,19 @@ fn reduce_rule_list_b(seq: Vec<String>) -> Vec<Vec<String>> {
     vec![seq]
 }
 
+fn reduce_rule_list_c(
+    mut list: Vec<Vec<String>>,
+    _pipe: Option<Token>,
+    _epsilon: Option<Token>,
+) -> Vec<Vec<String>> {
+    list.push(vec![]);
+    list
+}
+
+fn reduce_rule_list_d(_epsilon: Option<Token>) -> Vec<Vec<String>> {
+    vec![vec![]]
+}
+
 fn reduce_sequence_a(mut seq: Vec<String>, symbol: Option<Token>) -> Vec<String> {
     seq.push(symbol.unwrap().unwrap_ident());
     seq
@@ -168,6 +181,16 @@ mod tests {
             Token::Semicolon,
         ];
         let res = parse_iter(seq.into_iter().cloned());
-        assert_eq!(format!("{:?}", res), "()");
+        assert_eq!(
+            res,
+            ast::Desc {
+                tokens: vec![
+                    ast::TokenDecl {
+                        name: "hello".into(),
+                    },
+                ],
+                rules: vec![],
+            }
+        );
     }
 }
