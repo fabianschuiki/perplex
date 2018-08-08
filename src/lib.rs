@@ -12,6 +12,7 @@ pub mod item_set;
 pub mod machine;
 pub mod backend;
 mod honalee;
+mod lexer;
 
 /// A pretty printer.
 pub struct Pretty<C, T> {
