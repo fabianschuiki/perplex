@@ -446,10 +446,11 @@ where
                 return (set, false);
             }
             Symbol::Nonterminal(id) => for &rule_id in grammar.rules_for_nonterminal(id) {
-                let fs = first_sets.get(rule_id).unwrap();
-                set.union_with(&fs.symbols);
-                if !fs.has_epsilon {
-                    return (set, false);
+                if let Some(fs) = first_sets.get(rule_id) {
+                    set.union_with(&fs.symbols);
+                    if !fs.has_epsilon {
+                        return (set, false);
+                    }
                 }
             },
         }
