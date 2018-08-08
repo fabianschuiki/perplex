@@ -10,7 +10,7 @@
 use std::mem::swap;
 use std::iter::repeat;
 use bit_set::BitSet;
-use grammar::{Grammar, RuleId, Symbol};
+use grammar::{Grammar, NonterminalId, Symbol};
 
 /// All first sets of a grammar.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -36,13 +36,14 @@ impl FirstSets {
         &self.0
     }
 
-    /// Get the first set of a specific rule in the grammar.
-    pub fn get(&self, rule: RuleId) -> Option<&FirstSet> {
-        self.0.get(rule.as_usize())
+    /// Get the first set of a specific nonterminal in the grammar.
+    pub fn get(&self, nt: NonterminalId) -> &FirstSet {
+        &self.0[nt.as_usize()]
     }
 }
 
-/// The meat of this module. Computes the first set for each rule in a grammar.
+/// The meat of this module. Computes the first set for each nonterminal in a
+/// grammar.
 fn compute(grammar: &Grammar) -> FirstSets {
     let num_term = grammar.terminal_id_bound();
     let num_nonterm = grammar.nonterminal_id_bound();

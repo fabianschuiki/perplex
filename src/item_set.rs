@@ -445,14 +445,13 @@ where
                 set.insert(id.as_usize());
                 return (set, false);
             }
-            Symbol::Nonterminal(id) => for &rule_id in grammar.rules_for_nonterminal(id) {
-                if let Some(fs) = first_sets.get(rule_id) {
-                    set.union_with(&fs.symbols);
-                    if !fs.has_epsilon {
-                        return (set, false);
-                    }
+            Symbol::Nonterminal(id) => {
+                let fs = first_sets.get(id);
+                set.union_with(&fs.symbols);
+                if !fs.has_epsilon {
+                    return (set, false);
                 }
-            },
+            }
         }
     }
     (set, true)
@@ -494,5 +493,47 @@ impl<'a> Iterator for ActionsMut<'a> {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use grammar::{Grammar, Rule, END};
+    use item_set::ItemSets;
+
+    /// Ensure that left recursive rules that have a nonterminal after the
+    /// recursion produce all the required lookaheads. This is a regression test
+    /// to catch the following:
+    ///
+    ///     A : A B | B ;
+    ///     B : c ;
+    ///
+    /// Would generated the following items in the first set:
+    ///
+    ///     [A -> . A B, $end]
+    ///     [A -> . B, $end]
+    ///     [B -> . c, $end]
+    ///
+    /// But would be missing the following:
+    ///
+    ///     [A -> . A B, c]
+    ///     [A -> . B, c]
+    ///     [B -> . c, c]
+    #[test]
+    fn left_recursion() {
+        let mut g = Grammar::new();
+        let a = g.add_nonterminal("A");
+        let b = g.add_nonterminal("B");
+        let c = g.add_terminal("c");
+        g.add_rule(Rule::new(a, vec![a.into(), b.into()]));
+        g.add_rule(Rule::new(a, vec![b.into()]));
+        g.add_rule(Rule::new(b, vec![c.into()]));
+        let is = ItemSets::compute(&g);
+        println!("{}", is.pretty(&g));
+        let la_exp = vec![END, c];
+        for is in is.all()[2..].iter() {
+            let la_act: Vec<_> = is.items().iter().map(|i| i.lookahead).collect();
+            assert_eq!(la_act, la_exp);
+        }
     }
 }
