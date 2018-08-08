@@ -2,41 +2,41 @@
 
 /// All nonterminals that may be pushed onto the stack.
 enum Nonterminal {
-    Nt0(Desc),
-    Nt1(Item),
-    Nt2(TokenDecl),
-    Nt3(RuleDecl),
+    Nt0(ast::Desc),
+    Nt1(ast::Item),
+    Nt2(ast::TokenDecl),
+    Nt3(ast::RuleDecl),
     Nt4(Vec<Vec<String>>),
     Nt5(Vec<String>),
 }
 
 impl Nonterminal {
     #[inline(always)]
-    fn unwrap_nt0(self) -> Desc {
+    fn unwrap_nt0(self) -> ast::Desc {
         match self {
             Nonterminal::Nt0(nt) => nt,
-            _ => panic!("expected nonterminal `Desc`"),
+            _ => panic!("expected nonterminal `ast::Desc`"),
         }
     }
     #[inline(always)]
-    fn unwrap_nt1(self) -> Item {
+    fn unwrap_nt1(self) -> ast::Item {
         match self {
             Nonterminal::Nt1(nt) => nt,
-            _ => panic!("expected nonterminal `Item`"),
+            _ => panic!("expected nonterminal `ast::Item`"),
         }
     }
     #[inline(always)]
-    fn unwrap_nt2(self) -> TokenDecl {
+    fn unwrap_nt2(self) -> ast::TokenDecl {
         match self {
             Nonterminal::Nt2(nt) => nt,
-            _ => panic!("expected nonterminal `TokenDecl`"),
+            _ => panic!("expected nonterminal `ast::TokenDecl`"),
         }
     }
     #[inline(always)]
-    fn unwrap_nt3(self) -> RuleDecl {
+    fn unwrap_nt3(self) -> ast::RuleDecl {
         match self {
             Nonterminal::Nt3(nt) => nt,
-            _ => panic!("expected nonterminal `RuleDecl`"),
+            _ => panic!("expected nonterminal `ast::RuleDecl`"),
         }
     }
     #[inline(always)]
@@ -111,7 +111,7 @@ fn state_2<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         None => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt1();
-            let reduced: Desc = reduce_desc_b(
+            let reduced: ast::Desc = reduce_desc_b(
                 arg0,
             );
             Nonterminal::Nt0(reduced)
@@ -119,7 +119,7 @@ fn state_2<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         Some(Token::Ident(_)) => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt1();
-            let reduced: Desc = reduce_desc_b(
+            let reduced: ast::Desc = reduce_desc_b(
                 arg0,
             );
             Nonterminal::Nt0(reduced)
@@ -127,7 +127,7 @@ fn state_2<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         Some(Token::Keyword(Keyword::Token)) => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt1();
-            let reduced: Desc = reduce_desc_b(
+            let reduced: ast::Desc = reduce_desc_b(
                 arg0,
             );
             Nonterminal::Nt0(reduced)
@@ -135,7 +135,7 @@ fn state_2<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         Some(Token::Semicolon) => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt1();
-            let reduced: Desc = reduce_desc_b(
+            let reduced: ast::Desc = reduce_desc_b(
                 arg0,
             );
             Nonterminal::Nt0(reduced)
@@ -155,7 +155,7 @@ fn state_3<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         None => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_terminal();
-            let reduced: Desc = reduce_desc_d(
+            let reduced: ast::Desc = reduce_desc_d(
                 arg0,
             );
             Nonterminal::Nt0(reduced)
@@ -163,7 +163,7 @@ fn state_3<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         Some(Token::Ident(_)) => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_terminal();
-            let reduced: Desc = reduce_desc_d(
+            let reduced: ast::Desc = reduce_desc_d(
                 arg0,
             );
             Nonterminal::Nt0(reduced)
@@ -171,7 +171,7 @@ fn state_3<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         Some(Token::Keyword(Keyword::Token)) => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_terminal();
-            let reduced: Desc = reduce_desc_d(
+            let reduced: ast::Desc = reduce_desc_d(
                 arg0,
             );
             Nonterminal::Nt0(reduced)
@@ -179,7 +179,7 @@ fn state_3<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         Some(Token::Semicolon) => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_terminal();
-            let reduced: Desc = reduce_desc_d(
+            let reduced: ast::Desc = reduce_desc_d(
                 arg0,
             );
             Nonterminal::Nt0(reduced)
@@ -199,7 +199,7 @@ fn state_4<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         None => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt2();
-            let reduced: Item = reduce_item_a(
+            let reduced: ast::Item = reduce_item_a(
                 arg0,
             );
             Nonterminal::Nt1(reduced)
@@ -207,7 +207,7 @@ fn state_4<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         Some(Token::Ident(_)) => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt2();
-            let reduced: Item = reduce_item_a(
+            let reduced: ast::Item = reduce_item_a(
                 arg0,
             );
             Nonterminal::Nt1(reduced)
@@ -215,7 +215,7 @@ fn state_4<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         Some(Token::Keyword(Keyword::Token)) => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt2();
-            let reduced: Item = reduce_item_a(
+            let reduced: ast::Item = reduce_item_a(
                 arg0,
             );
             Nonterminal::Nt1(reduced)
@@ -223,7 +223,7 @@ fn state_4<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         Some(Token::Semicolon) => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt2();
-            let reduced: Item = reduce_item_a(
+            let reduced: ast::Item = reduce_item_a(
                 arg0,
             );
             Nonterminal::Nt1(reduced)
@@ -243,7 +243,7 @@ fn state_5<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         None => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt3();
-            let reduced: Item = reduce_item_b(
+            let reduced: ast::Item = reduce_item_b(
                 arg0,
             );
             Nonterminal::Nt1(reduced)
@@ -251,7 +251,7 @@ fn state_5<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         Some(Token::Ident(_)) => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt3();
-            let reduced: Item = reduce_item_b(
+            let reduced: ast::Item = reduce_item_b(
                 arg0,
             );
             Nonterminal::Nt1(reduced)
@@ -259,7 +259,7 @@ fn state_5<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         Some(Token::Keyword(Keyword::Token)) => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt3();
-            let reduced: Item = reduce_item_b(
+            let reduced: ast::Item = reduce_item_b(
                 arg0,
             );
             Nonterminal::Nt1(reduced)
@@ -267,7 +267,7 @@ fn state_5<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
         Some(Token::Semicolon) => p.reduce(1, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt3();
-            let reduced: Item = reduce_item_b(
+            let reduced: ast::Item = reduce_item_b(
                 arg0,
             );
             Nonterminal::Nt1(reduced)
@@ -314,7 +314,7 @@ fn state_8<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt0();
             let arg1 = args.next().unwrap().unwrap_nonterminal().unwrap_nt1();
-            let reduced: Desc = reduce_desc_a(
+            let reduced: ast::Desc = reduce_desc_a(
                 arg0,
                 arg1,
             );
@@ -324,7 +324,7 @@ fn state_8<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt0();
             let arg1 = args.next().unwrap().unwrap_nonterminal().unwrap_nt1();
-            let reduced: Desc = reduce_desc_a(
+            let reduced: ast::Desc = reduce_desc_a(
                 arg0,
                 arg1,
             );
@@ -334,7 +334,7 @@ fn state_8<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt0();
             let arg1 = args.next().unwrap().unwrap_nonterminal().unwrap_nt1();
-            let reduced: Desc = reduce_desc_a(
+            let reduced: ast::Desc = reduce_desc_a(
                 arg0,
                 arg1,
             );
@@ -344,7 +344,7 @@ fn state_8<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt0();
             let arg1 = args.next().unwrap().unwrap_nonterminal().unwrap_nt1();
-            let reduced: Desc = reduce_desc_a(
+            let reduced: ast::Desc = reduce_desc_a(
                 arg0,
                 arg1,
             );
@@ -366,7 +366,7 @@ fn state_9<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt0();
             let arg1 = args.next().unwrap().unwrap_terminal();
-            let reduced: Desc = reduce_desc_c(
+            let reduced: ast::Desc = reduce_desc_c(
                 arg0,
                 arg1,
             );
@@ -376,7 +376,7 @@ fn state_9<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt0();
             let arg1 = args.next().unwrap().unwrap_terminal();
-            let reduced: Desc = reduce_desc_c(
+            let reduced: ast::Desc = reduce_desc_c(
                 arg0,
                 arg1,
             );
@@ -386,7 +386,7 @@ fn state_9<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt0();
             let arg1 = args.next().unwrap().unwrap_terminal();
-            let reduced: Desc = reduce_desc_c(
+            let reduced: ast::Desc = reduce_desc_c(
                 arg0,
                 arg1,
             );
@@ -396,7 +396,7 @@ fn state_9<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nont
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_nonterminal().unwrap_nt0();
             let arg1 = args.next().unwrap().unwrap_terminal();
-            let reduced: Desc = reduce_desc_c(
+            let reduced: ast::Desc = reduce_desc_c(
                 arg0,
                 arg1,
             );
@@ -447,7 +447,7 @@ fn state_12<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg0 = args.next().unwrap().unwrap_terminal();
             let arg1 = args.next().unwrap().unwrap_terminal();
             let arg2 = args.next().unwrap().unwrap_terminal();
-            let reduced: TokenDecl = reduce_token_decl(
+            let reduced: ast::TokenDecl = reduce_token_decl(
                 arg0,
                 arg1,
                 arg2,
@@ -459,7 +459,7 @@ fn state_12<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg0 = args.next().unwrap().unwrap_terminal();
             let arg1 = args.next().unwrap().unwrap_terminal();
             let arg2 = args.next().unwrap().unwrap_terminal();
-            let reduced: TokenDecl = reduce_token_decl(
+            let reduced: ast::TokenDecl = reduce_token_decl(
                 arg0,
                 arg1,
                 arg2,
@@ -471,7 +471,7 @@ fn state_12<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg0 = args.next().unwrap().unwrap_terminal();
             let arg1 = args.next().unwrap().unwrap_terminal();
             let arg2 = args.next().unwrap().unwrap_terminal();
-            let reduced: TokenDecl = reduce_token_decl(
+            let reduced: ast::TokenDecl = reduce_token_decl(
                 arg0,
                 arg1,
                 arg2,
@@ -483,7 +483,7 @@ fn state_12<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg0 = args.next().unwrap().unwrap_terminal();
             let arg1 = args.next().unwrap().unwrap_terminal();
             let arg2 = args.next().unwrap().unwrap_terminal();
-            let reduced: TokenDecl = reduce_token_decl(
+            let reduced: ast::TokenDecl = reduce_token_decl(
                 arg0,
                 arg1,
                 arg2,
@@ -587,7 +587,7 @@ fn state_16<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg1 = args.next().unwrap().unwrap_terminal();
             let arg2 = args.next().unwrap().unwrap_nonterminal().unwrap_nt4();
             let arg3 = args.next().unwrap().unwrap_terminal();
-            let reduced: RuleDecl = reduce_rule_decl(
+            let reduced: ast::RuleDecl = reduce_rule_decl(
                 arg0,
                 arg1,
                 arg2,
@@ -601,7 +601,7 @@ fn state_16<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg1 = args.next().unwrap().unwrap_terminal();
             let arg2 = args.next().unwrap().unwrap_nonterminal().unwrap_nt4();
             let arg3 = args.next().unwrap().unwrap_terminal();
-            let reduced: RuleDecl = reduce_rule_decl(
+            let reduced: ast::RuleDecl = reduce_rule_decl(
                 arg0,
                 arg1,
                 arg2,
@@ -615,7 +615,7 @@ fn state_16<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg1 = args.next().unwrap().unwrap_terminal();
             let arg2 = args.next().unwrap().unwrap_nonterminal().unwrap_nt4();
             let arg3 = args.next().unwrap().unwrap_terminal();
-            let reduced: RuleDecl = reduce_rule_decl(
+            let reduced: ast::RuleDecl = reduce_rule_decl(
                 arg0,
                 arg1,
                 arg2,
@@ -629,7 +629,7 @@ fn state_16<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg1 = args.next().unwrap().unwrap_terminal();
             let arg2 = args.next().unwrap().unwrap_nonterminal().unwrap_nt4();
             let arg3 = args.next().unwrap().unwrap_terminal();
-            let reduced: RuleDecl = reduce_rule_decl(
+            let reduced: ast::RuleDecl = reduce_rule_decl(
                 arg0,
                 arg1,
                 arg2,

@@ -28,14 +28,14 @@ fn main() {
         )
         .get_matches();
 
-    // Parse the input grammar.
-    let _grammar = {
+    // Parse the input grammar description.
+    let desc = {
         let path = matches.value_of("GRAMMAR").unwrap();
         let file = File::open(path).expect("failed to open grammar file");
         let mmap = unsafe { Mmap::map(&file).expect("failed to memory map the grammar file") };
         let text = unsafe { std::str::from_utf8_unchecked(&mmap) };
         let lex = Lexer::new(text.char_indices());
-        let parsed = parse_iter(lex.map(|(_, _, t)| t));
-        println!("{:?}", parsed);
+        parse_iter(lex.map(|(_, _, t)| t))
     };
+    println!("{:#?}", desc);
 }

@@ -77,10 +77,10 @@ fn main() {
     // Configure the code generation backend.
     let mut backend = Backend::new();
 
-    backend.add_nonterminal(nt_desc, "Desc");
-    backend.add_nonterminal(nt_item, "Item");
-    backend.add_nonterminal(nt_token_decl, "TokenDecl");
-    backend.add_nonterminal(nt_rule_decl, "RuleDecl");
+    backend.add_nonterminal(nt_desc, "ast::Desc");
+    backend.add_nonterminal(nt_item, "ast::Item");
+    backend.add_nonterminal(nt_token_decl, "ast::TokenDecl");
+    backend.add_nonterminal(nt_rule_decl, "ast::RuleDecl");
     backend.add_nonterminal(nt_rule_list, "Vec<Vec<String>>");
     backend.add_nonterminal(nt_sequence, "Vec<String>");
 
