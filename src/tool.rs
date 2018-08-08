@@ -1,62 +1,40 @@
 // Copyright (c) 2018 Fabian Schuiki
 #[macro_use]
 extern crate clap;
+extern crate memmap;
 extern crate perplex;
 
 use std::fs::File;
 
-use clap::App;
+use clap::{App, Arg};
+use memmap::Mmap;
 use perplex::grammar::{Grammar, Rule};
 use perplex::item_set::ItemSets;
 use perplex::machine::StateMachine;
 use perplex::backend::{generate_parser, Backend};
+use perplex::lexer::Lexer;
 
-#[allow(non_snake_case)]
-#[allow(unused_variables)]
 fn main() {
-    let _matches = App::new(crate_name!())
+    // Parse the command line arguments.
+    let matches = App::new(crate_name!())
         .version(crate_version!())
         .author(crate_authors!())
+        .arg(
+            Arg::with_name("GRAMMAR")
+                .help("The input grammar to process")
+                .required(true)
+                .index(1),
+        )
         .get_matches();
-    println!("This is perplexing");
 
-    // Build the grammar in David Tribble's example 11.
-    let mut g = Grammar::new();
-    let (ntS, ntA, ntB) = (
-        g.add_nonterminal("S"),
-        g.add_nonterminal("A"),
-        g.add_nonterminal("B"),
-    );
-    let (ta, tb, tc, td, te) = (
-        g.add_terminal("a"),
-        g.add_terminal("b"),
-        g.add_terminal("c"),
-        g.add_terminal("d"),
-        g.add_terminal("e"),
-    );
-    g.add_rule(Rule::new(ntS, vec![ta.into(), ntA.into(), td.into()]));
-    g.add_rule(Rule::new(ntS, vec![ta.into(), ntB.into(), te.into()]));
-    g.add_rule(Rule::new(ntS, vec![tb.into(), ntA.into(), te.into()]));
-    g.add_rule(Rule::new(ntS, vec![tb.into(), ntB.into(), td.into()]));
-    g.add_rule(Rule::new(ntA, vec![tc.into()]));
-    g.add_rule(Rule::new(ntB, vec![tc.into()]));
-
-    // Construct the item sets for the grammar.
-    let is = ItemSets::compute(&g);
-    println!("item sets:");
-    println!("{}", is.pretty(&g));
-
-    // Create the state machine from the item sets.
-    let sm = StateMachine::try_from(&is).expect("unable to create state machine");
-
-    // Create a backend with proper names for the symbols.
-    let backend = Backend::new();
-
-    // Run code generation on the backend.
-    generate_parser(
-        &mut File::create("/tmp/perplex_parser.rs").unwrap(),
-        &backend,
-        &sm,
-        &g,
-    ).expect("codegen failed");
+    // Parse the input grammar.
+    let _grammar = {
+        let path = matches.value_of("GRAMMAR").unwrap();
+        let file = File::open(path).expect("failed to open grammar file");
+        let mmap = unsafe { Mmap::map(&file).expect("failed to memory map the grammar file") };
+        let text = unsafe { std::str::from_utf8_unchecked(&mmap) };
+        let lex = Lexer::new(text.char_indices());
+        let tkn: Vec<_> = lex.collect();
+        println!("{:?}", tkn);
+    };
 }

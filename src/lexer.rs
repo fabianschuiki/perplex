@@ -1,9 +1,12 @@
 // Copyright (c) 2018 Fabian Schuiki
 #![allow(dead_code)]
 
+//! A lexer for grammar descriptions.
+
 use std::iter::Peekable;
 
 /// The tokens that may appear in a grammar description.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Token {
     Keyword(Keyword),
@@ -18,6 +21,7 @@ pub enum Token {
 }
 
 /// The keywords that may appear in a grammar description.
+#[allow(missing_docs)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Keyword {
     Token,
