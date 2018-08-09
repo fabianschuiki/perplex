@@ -211,6 +211,22 @@ impl Symbol {
     pub fn pretty<'a>(&'a self, grammar: &'a Grammar) -> Pretty<&'a Grammar, &'a Self> {
         Pretty::new(grammar, self)
     }
+
+    /// Check whether this symbol is a terminal.
+    pub fn is_terminal(&self) -> bool {
+        match *self {
+            Symbol::Terminal(..) => true,
+            _ => false,
+        }
+    }
+
+    /// Check whether this symbol is a nonterminal.
+    pub fn is_nonterminal(&self) -> bool {
+        match *self {
+            Symbol::Nonterminal(..) => true,
+            _ => false,
+        }
+    }
 }
 
 impl From<TerminalId> for Symbol {
