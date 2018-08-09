@@ -36,11 +36,11 @@ pub enum Symbol {
 }
 
 /// A unique nonterminal identifier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NonterminalId(usize);
 
 /// A unique terminal identifier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TerminalId(usize);
 
 /// A unique rule identifier.
@@ -267,6 +267,18 @@ impl NonterminalId {
     }
 }
 
+impl fmt::Display for NonterminalId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "nt{}", self.0)
+    }
+}
+
+impl fmt::Debug for NonterminalId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 impl<'a> fmt::Display for Pretty<&'a Grammar, NonterminalId> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.ctx.nonterminal_name(self.item))
@@ -287,6 +299,18 @@ impl TerminalId {
     /// Get a pretty printer for this terminal.
     pub fn pretty(self, grammar: &Grammar) -> Pretty<&Grammar, Self> {
         Pretty::new(grammar, self)
+    }
+}
+
+impl fmt::Display for TerminalId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "t{}", self.0)
+    }
+}
+
+impl fmt::Debug for TerminalId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
     }
 }
 

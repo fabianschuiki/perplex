@@ -54,7 +54,7 @@ pub enum Action {
 }
 
 /// A unique item set identifier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ItemSetId(usize);
 
 impl ItemSets {
@@ -83,6 +83,12 @@ impl ItemSets {
         for is in &mut self.0 {
             is.compress();
         }
+    }
+}
+
+impl fmt::Debug for ItemSetId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "i{}", self.0)
     }
 }
 
