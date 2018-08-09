@@ -15,6 +15,7 @@ use perplex::machine::StateMachine;
 // use perplex::backend::{generate_parser, Backend};
 use perplex::lexer::Lexer;
 use perplex::parser::parse_iter;
+use perplex::glr::GlrAnalysis;
 
 fn main() {
     // Parse the command line arguments.
@@ -36,6 +37,11 @@ fn main() {
             Arg::with_name("dump_sets")
                 .long("dump-sets")
                 .help("Dump the generated item sets and exit"),
+        )
+        .arg(
+            Arg::with_name("conflict_arcs")
+                .long("conflict-arcs")
+                .help("Compute conflict arcs in the state space"),
         )
         .get_matches();
 
@@ -98,6 +104,13 @@ fn main() {
     let is = ItemSets::compute(&grammar);
     if matches.is_present("dump_sets") {
         println!("{}", is.pretty(&grammar));
+        return;
+    }
+
+    // Compute conflict arcs.
+    if matches.is_present("conflict_arcs") {
+        let ga = GlrAnalysis::compute(&grammar, &is);
+        println!("{:#?}", ga);
         return;
     }
 

@@ -10,22 +10,35 @@ fn main() {
     // Build the following grammar which has a shift/reduce conflict in the
     // first item set, which can be resolved with an additional lookahead token.
     //
-    //   A : B d e | C d e;
-    //   B : d;
-    //   C : epsilon;
+    //   S : A B z ;
+    //
+    //   B : B y C | C ;
+    //   C : x ;
+    //
+    //   A : D | E ;
+    //   D : x ;
+    //   E : epsilon ;
     //
     let mut g = Grammar::new();
 
+    let nt_s = g.add_nonterminal("S");
     let nt_a = g.add_nonterminal("A");
     let nt_b = g.add_nonterminal("B");
     let nt_c = g.add_nonterminal("C");
-    let t_d = g.add_terminal("d");
-    let t_e = g.add_terminal("e");
+    let nt_d = g.add_nonterminal("D");
+    let nt_e = g.add_nonterminal("E");
+    let t_x = g.add_terminal("x");
+    let t_y = g.add_terminal("y");
+    let t_z = g.add_terminal("z");
 
-    g.add_rule(Rule::new(nt_a, vec![nt_b.into(), t_d.into(), t_e.into()]));
-    g.add_rule(Rule::new(nt_a, vec![nt_c.into(), t_d.into(), t_e.into()]));
-    g.add_rule(Rule::new(nt_b, vec![t_d.into()]));
-    g.add_rule(Rule::new(nt_c, vec![]));
+    g.add_rule(Rule::new(nt_s, vec![nt_a.into(), nt_b.into(), t_z.into()]));
+    g.add_rule(Rule::new(nt_b, vec![nt_b.into(), t_y.into(), nt_c.into()]));
+    g.add_rule(Rule::new(nt_b, vec![nt_c.into()]));
+    g.add_rule(Rule::new(nt_c, vec![t_x.into()]));
+    g.add_rule(Rule::new(nt_a, vec![nt_d.into()]));
+    g.add_rule(Rule::new(nt_a, vec![nt_e.into()]));
+    g.add_rule(Rule::new(nt_d, vec![t_x.into()]));
+    g.add_rule(Rule::new(nt_e, vec![]));
 
     // Compute the item sets for the grammar.
     let is = ItemSets::compute(&g);
