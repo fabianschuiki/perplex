@@ -12,7 +12,8 @@ This is *perplex*, a grammar analyzer and parser generator for almost-context-fr
 
 - [x] item set generation
 - [x] item set merging/compression
-- [ ] conflict reporting
-- [ ] state space computation
+- [x] conflict reporting
+- [x] state space computation
+- [ ] GLR analysis with recursive rules
 - [ ] separate extended grammar with symbol groups, optional symbols, repetitions
 - [ ] generalization to CFG, tiered parsing
