@@ -106,6 +106,38 @@ impl Grammar {
         }
     }
 
+    /// Lookup a nonterminal by name.
+    ///
+    /// Panics if the nonterminal does not exist.
+    pub fn nonterminal<S: AsRef<str>>(&self, name: S) -> NonterminalId {
+        let name = name.as_ref();
+        match self.get_nonterminal(name) {
+            Some(x) => x,
+            None => panic!("nonterminal `{}` not found", name),
+        }
+    }
+
+    /// Lookup a terminal by name.
+    ///
+    /// Panics if the terminal does not exist.
+    pub fn terminal<S: AsRef<str>>(&self, name: S) -> TerminalId {
+        let name = name.as_ref();
+        match self.get_terminal(name) {
+            Some(x) => x,
+            None => panic!("terminal `{}` not found", name),
+        }
+    }
+
+    /// Find a nonterminal.
+    pub fn get_nonterminal<S: AsRef<str>>(&self, name: S) -> Option<NonterminalId> {
+        self.nonterms.get(name.as_ref()).cloned()
+    }
+
+    /// Find a terminal.
+    pub fn get_terminal<S: AsRef<str>>(&self, name: S) -> Option<TerminalId> {
+        self.terms.get(name.as_ref()).cloned()
+    }
+
     /// Get the name of a nonterminal.
     pub fn nonterminal_name(&self, id: NonterminalId) -> &str {
         &self.nonterm_names[id.as_usize()]
