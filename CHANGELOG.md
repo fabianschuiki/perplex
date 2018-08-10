@@ -10,3 +10,4 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Backslash escapes inside quoted identifiers in grammar files.
 - Detailed verbosity control for the command line tool (options `-v|-vv|-vvv|-vvvv|-vvvvv|-q|-t`).
 - Add support for conflict arcs that backtrack beyond the initial point of conflict.
+- Add `parser::make_grammar` function.

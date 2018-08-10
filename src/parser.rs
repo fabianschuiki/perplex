@@ -4,7 +4,10 @@
 
 #![allow(unused_variables)]
 
+use std::collections::HashMap;
+
 use lexer::{Keyword, Token};
+use grammar::{Grammar, NonterminalId, Rule, Symbol, TerminalId};
 use perplex_runtime::Parser;
 
 type Terminal = Option<Token>;
@@ -167,6 +170,48 @@ type CoreParser<I> = ::perplex_runtime::ParserMachine<I, StateSpace>;
 /// Parse a sequence of tokens given by an iterator.
 pub fn parse_iter<I: Iterator<Item = Token>>(input: I) -> ast::Desc {
     CoreParser::from_iter(input).run().unwrap_nt0()
+}
+
+/// Convert the grammar description into an actual grammar.
+pub fn make_grammar(desc: &ast::Desc) -> Grammar {
+    let mut grammar = Grammar::new();
+
+    // Declare the terminals and nonterminals.
+    let mut token_map: HashMap<String, TerminalId> = HashMap::new();
+    let mut rule_map: HashMap<String, NonterminalId> = HashMap::new();
+    for d in &desc.tokens {
+        token_map.insert(d.name.clone(), grammar.add_terminal(d.name.clone()));
+    }
+    for d in &desc.rules {
+        rule_map.insert(d.name.clone(), grammar.add_nonterminal(d.name.clone()));
+    }
+
+    // Create a unified symbol lookup table.
+    let mut symbol_map: HashMap<String, Symbol> = HashMap::new();
+    for (n, &i) in &token_map {
+        symbol_map.insert(n.clone(), i.into());
+    }
+    for (n, &i) in &rule_map {
+        if symbol_map.insert(n.clone(), i.into()).is_some() {
+            panic!("rule name `{}` conflicts with token name `{}`", n, n);
+        }
+    }
+
+    // Add the rules to the grammar.
+    for d in &desc.rules {
+        let id = rule_map[&d.name];
+        for v in &d.variants {
+            let seq = v.iter()
+                .map(|v| match symbol_map.get(v) {
+                    Some(&s) => s,
+                    None => panic!("unknown token or rule `{}`", v),
+                })
+                .collect();
+            grammar.add_rule(Rule::new(id, seq));
+        }
+    }
+
+    grammar
 }
 
 #[cfg(test)]
