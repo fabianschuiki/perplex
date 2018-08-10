@@ -4,9 +4,10 @@
 
 #![allow(unused_variables)]
 
+use std::str;
 use std::collections::HashMap;
 
-use lexer::{Keyword, Token};
+use lexer::{Keyword, Lexer, Token};
 use grammar::{Grammar, NonterminalId, Rule, Symbol, TerminalId};
 use perplex_runtime::Parser;
 
@@ -170,6 +171,14 @@ type CoreParser<I> = ::perplex_runtime::ParserMachine<I, StateSpace>;
 /// Parse a sequence of tokens given by an iterator.
 pub fn parse_iter<I: Iterator<Item = Token>>(input: I) -> ast::Desc {
     CoreParser::from_iter(input).run().unwrap_nt0()
+}
+
+/// Parse a string.
+///
+/// This first tokenizes the string and then parses it.
+pub fn parse_str<S: AsRef<str>>(input: S) -> ast::Desc {
+    let lex = Lexer::new(input.as_ref().char_indices());
+    parse_iter(lex.map(|(_, _, t)| t))
 }
 
 /// Convert the grammar description into an actual grammar.

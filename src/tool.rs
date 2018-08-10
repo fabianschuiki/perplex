@@ -13,7 +13,6 @@ use memmap::Mmap;
 use perplex::item_set::ItemSets;
 use perplex::machine::StateMachine;
 // use perplex::backend::{generate_parser, Backend};
-use perplex::lexer::Lexer;
 use perplex::parser;
 use perplex::glr;
 
@@ -93,8 +92,7 @@ fn main() {
         let file = File::open(path).expect("failed to open grammar file");
         let mmap = unsafe { Mmap::map(&file).expect("failed to memory map the grammar file") };
         let text = unsafe { std::str::from_utf8_unchecked(&mmap) };
-        let lex = Lexer::new(text.char_indices());
-        parser::parse_iter(lex.map(|(_, _, t)| t))
+        parser::parse_str(text)
     };
 
     if matches.is_present("dump_ast") {
