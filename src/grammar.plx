@@ -27,7 +27,8 @@ item (`ast::Item`) {
 }
 
 token_decl (`ast::TokenDecl`) {
-	'token' token_name '(' CODE ')' ';' (`reduce_token_decl`);
+	'token' token_name '(' CODE ')' ';' (`reduce_token_decl_a`);
+	'token' token_name ';'              (`reduce_token_decl_b`);
 }
 
 token_name (`ast::TokenName`) {
@@ -36,7 +37,8 @@ token_name (`ast::TokenName`) {
 }
 
 rule_decl (`ast::RuleDecl`) {
-	IDENT '(' CODE ')' '{' rule_list '}' (`reduce_rule_decl`);
+	IDENT '(' CODE ')' '{' rule_list '}' (`reduce_rule_decl_a`);
+	IDENT '{' rule_list '}'              (`reduce_rule_decl_b`);
 }
 
 rule_list (`Vec<ast::Variant>`) {
@@ -45,7 +47,8 @@ rule_list (`Vec<ast::Variant>`) {
 }
 
 variant (`ast::Variant`) {
-	sequence_or_epsilon '(' CODE ')' ';' (`reduce_variant`);
+	sequence_or_epsilon '(' CODE ')' ';' (`reduce_variant_a`);
+	sequence_or_epsilon ';'              (`reduce_variant_b`);
 }
 
 sequence_or_epsilon (`Vec<String>`) {

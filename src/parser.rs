@@ -113,7 +113,7 @@ fn reduce_item_b(rule_decl: ast::RuleDecl) -> ast::Item {
     ast::Item::RuleDecl(rule_decl)
 }
 
-fn reduce_token_decl(
+fn reduce_token_decl_a(
     _keyword: Option<Token>,
     name: ast::TokenName,
     _lparen: Option<Token>,
@@ -127,6 +127,17 @@ fn reduce_token_decl(
     }
 }
 
+fn reduce_token_decl_b(
+    _keyword: Option<Token>,
+    name: ast::TokenName,
+    _semicolon: Option<Token>,
+) -> ast::TokenDecl {
+    ast::TokenDecl {
+        name: name,
+        pattern: None,
+    }
+}
+
 fn reduce_token_name_a(name: Option<Token>) -> ast::TokenName {
     ast::TokenName::Name(name.unwrap().unwrap_ident())
 }
@@ -135,7 +146,7 @@ fn reduce_token_name_b(_end: Option<Token>) -> ast::TokenName {
     ast::TokenName::End
 }
 
-fn reduce_rule_decl(
+fn reduce_rule_decl_a(
     name: Option<Token>,
     _lparen: Option<Token>,
     reduce_type: Option<Token>,
@@ -151,6 +162,19 @@ fn reduce_rule_decl(
     }
 }
 
+fn reduce_rule_decl_b(
+    name: Option<Token>,
+    _lbrace: Option<Token>,
+    list: Vec<ast::Variant>,
+    rbrace: Option<Token>,
+) -> ast::RuleDecl {
+    ast::RuleDecl {
+        name: name.unwrap().unwrap_ident(),
+        reduce_type: None,
+        variants: list,
+    }
+}
+
 fn reduce_rule_list_a(mut list: Vec<ast::Variant>, variant: ast::Variant) -> Vec<ast::Variant> {
     list.push(variant);
     list
@@ -160,7 +184,7 @@ fn reduce_rule_list_b(variant: ast::Variant) -> Vec<ast::Variant> {
     vec![variant]
 }
 
-fn reduce_variant(
+fn reduce_variant_a(
     seq: Vec<String>,
     _lparen: Option<Token>,
     reduction_function: Option<Token>,
@@ -170,6 +194,13 @@ fn reduce_variant(
     ast::Variant {
         seq: seq,
         reduction_function: Some(reduction_function.unwrap().unwrap_code()),
+    }
+}
+
+fn reduce_variant_b(seq: Vec<String>, _semicolon: Option<Token>) -> ast::Variant {
+    ast::Variant {
+        seq: seq,
+        reduction_function: None,
     }
 }
 
