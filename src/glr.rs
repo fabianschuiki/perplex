@@ -87,7 +87,9 @@ pub fn find_conflict_arc(
                 lanes: vec![
                     ConflictLane {
                         parents: vec![],
+                        ancestors: vec![],
                         seq: vec![conflict.item_set],
+                        reductions: vec![],
                     },
                 ],
                 shifts: vec![],
@@ -145,9 +147,9 @@ fn advance_node_to_shift(
     // Keep working off the todo queue.
     let mut new_lanes = Vec::new();
 
-    while let Some(lane) = todo.pop_front() {
-        let id = lane.last();
-        debug!("advancing lane {:?} ({:?})", lane, id);
+    while let Some(current_lane) = todo.pop_front() {
+        let id = current_lane.last();
+        debug!("advancing lane {:?} ({:?})", current_lane, id);
 
         let mut any_shifts = false;
         let mut visited_reductions = HashSet::new();
@@ -179,11 +181,15 @@ fn advance_node_to_shift(
                     // back through the current lane's sequence, and its parent
                     // sequences.
                     let mut lanes = Vec::new();
-                    backtrack_lane(&lane, len, rule_id, &arc, item_sets, &mut lanes);
+                    backtrack_lane(&current_lane, len, rule_id, &arc, item_sets, &mut lanes);
 
                     // Perform the goto actions for each of the backtracked
                     // lanes.
-                    for lane in lanes {
+                    for mut lane in lanes {
+                        lane.ancestors = current_lane.ancestors.clone();
+                        lane.reductions = current_lane.reductions.clone();
+                        lane.reductions.push(rule_id);
+
                         let id = lane.last();
                         trace!(" - lookup goto {} at {:?}", nt.pretty(grammar), id);
                         let mut visited_targets = HashSet::new();
@@ -216,7 +222,7 @@ fn advance_node_to_shift(
         // node.
         if any_shifts {
             trace!(" - has shifts");
-            new_lanes.push(lane);
+            new_lanes.push(current_lane);
         }
     }
 
@@ -238,7 +244,9 @@ fn backtrack_lane(
     if len < lane.seq.len() {
         into.push(ConflictLane {
             parents: lane.parents.clone(),
+            ancestors: vec![],
             seq: lane.seq[0..lane.seq.len() - len].into(),
+            reductions: vec![],
         });
     } else {
         // If this is the conflict root, we have to extrapolate backwards where
@@ -269,18 +277,21 @@ fn backtrack_lane(
             }
             into.extend(origins.into_iter().map(|id| ConflictLane {
                 parents: vec![],
+                ancestors: vec![],
                 seq: vec![id],
+                reductions: vec![],
             }));
-        }
-        for &(node_id, lane_id) in lane.parents.iter() {
-            backtrack_lane(
-                &arc[node_id][lane_id],
-                len - lane.seq.len(),
-                rule_id,
-                arc,
-                item_sets,
-                into,
-            );
+        } else {
+            for &(node_id, lane_id) in lane.parents.iter() {
+                backtrack_lane(
+                    &arc[node_id][lane_id],
+                    len - lane.seq.len(),
+                    rule_id,
+                    arc,
+                    item_sets,
+                    into,
+                );
+            }
         }
     }
 }
@@ -340,12 +351,17 @@ fn spawn_next_rank(arc: &mut ConflictArc, grammar: &Grammar, item_sets: &ItemSet
                 );
                 let new_lanes = item_sets
                     .into_iter()
-                    .map(|item_set| ConflictLane {
-                        parents: parents[&item_set]
+                    .map(|item_set| {
+                        let new_parents: Vec<_> = parents[&item_set]
                             .iter()
                             .map(|&lane_id| (node_id, lane_id))
-                            .collect(),
-                        seq: vec![item_set],
+                            .collect();
+                        ConflictLane {
+                            parents: new_parents.clone(),
+                            ancestors: new_parents,
+                            seq: vec![item_set],
+                            reductions: vec![],
+                        }
                     })
                     .collect();
                 let new_node_id = ConflictNodeId(arc.nodes.len());
@@ -479,10 +495,23 @@ pub enum ConflictEdge {
 /// represent the sequences of reductions that happen in between shifts. They
 /// may have back-edges to lanes in earlier nodes to represent the state of the
 /// stack at various points.
+///
+/// The lane keeps track of two separate lists of predecessors:
+///
+/// - *parents* is concerned with the stack and points to previous possible
+///   stack states. If a lane has to backtrack beyond the initial point of
+///   conflict due to a reduction, this list becomes empty. Use this to find all
+///   possible stacks.
+/// - *ancestors* is concerned with the sequence of reductions and points to
+///   the lanes in previous nodes that spawned this lane. Use this to find all
+///   possible shift/reduce sequences.
+///
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConflictLane {
     parents: Vec<(ConflictNodeId, ConflictLaneId)>,
+    ancestors: Vec<(ConflictNodeId, ConflictLaneId)>,
     seq: Vec<ItemSetId>,
+    reductions: Vec<RuleId>,
 }
 
 impl ConflictLane {
@@ -499,6 +528,10 @@ impl ConflictLane {
 
 impl fmt::Debug for ConflictLane {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}->{:?}", self.parents, self.seq)
+        write!(
+            f,
+            "{:?}->{:?} / {:?}->{:?}",
+            self.parents, self.seq, self.ancestors, self.reductions
+        )
     }
 }
