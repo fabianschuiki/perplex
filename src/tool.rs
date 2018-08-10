@@ -1,8 +1,6 @@
 // Copyright (c) 2018 Fabian Schuiki
 #[macro_use]
 extern crate clap;
-#[macro_use]
-extern crate log;
 extern crate memmap;
 extern crate perplex;
 extern crate stderrlog;
