@@ -11,8 +11,11 @@ use std::iter::Peekable;
 pub enum Token {
     Keyword(Keyword),
     Ident(String),
+    Code(String),
     LParen,
     RParen,
+    LBrace,
+    RBrace,
     Period,
     Colon,
     Comma,
@@ -30,6 +33,15 @@ impl Token {
             _ => panic!("token {:?} is not an identifier", self),
         }
     }
+    /// Return the code.
+    ///
+    /// Panics if the token is not a code.
+    pub fn unwrap_code(self) -> String {
+        match self {
+            Token::Code(i) => i,
+            _ => panic!("token {:?} is not a code", self),
+        }
+    }
 }
 
 /// The keywords that may appear in a grammar description.
@@ -38,6 +50,7 @@ impl Token {
 pub enum Keyword {
     Token,
     Epsilon,
+    End,
 }
 
 /// A lexer for perplex grammar descriptions.
@@ -116,6 +129,8 @@ impl<T: Iterator<Item = (usize, char)>> Iterator for Lexer<T> {
         let tkn = match sc {
             '(' => Token::LParen,
             ')' => Token::RParen,
+            '{' => Token::LBrace,
+            '}' => Token::RBrace,
             '.' => Token::Period,
             ':' => Token::Colon,
             ',' => Token::Comma,
@@ -140,6 +155,24 @@ impl<T: Iterator<Item = (usize, char)>> Iterator for Lexer<T> {
                 }
                 Token::Ident(buffer)
             }
+            '`' => {
+                let mut buffer = String::new();
+                let mut escaped = false;
+                while let Some((ep, ec)) = self.input.next() {
+                    escaped = if buffer.ends_with('\\') && !escaped {
+                        buffer.pop();
+                        true
+                    } else {
+                        false
+                    };
+                    sl = ep + ec.len_utf8();
+                    if ec == '`' && !escaped {
+                        break;
+                    }
+                    buffer.push(ec);
+                }
+                Token::Code(buffer)
+            }
             _ => {
                 let mut buffer = String::new();
                 buffer.push(sc);
@@ -154,6 +187,7 @@ impl<T: Iterator<Item = (usize, char)>> Iterator for Lexer<T> {
                 match buffer.as_str() {
                     "token" => Token::Keyword(Keyword::Token),
                     "epsilon" => Token::Keyword(Keyword::Epsilon),
+                    "end" => Token::Keyword(Keyword::End),
                     _ => Token::Ident(buffer),
                 }
             }

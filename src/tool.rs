@@ -12,7 +12,7 @@ use clap::{App, Arg};
 use memmap::Mmap;
 use perplex::item_set::ItemSets;
 use perplex::machine::StateMachine;
-// use perplex::backend::{generate_parser, Backend};
+use perplex::backend::generate_parser;
 use perplex::parser;
 use perplex::glr;
 
@@ -101,8 +101,7 @@ fn main() {
     }
 
     // Create a grammar and backend description from the parsed AST.
-    let grammar = parser::make_grammar(&desc);
-    // let mut backend = Backend::new();
+    let (grammar, backend) = parser::make_grammar(&desc);
 
     // Determine the item sets.
     let is = ItemSets::compute(&grammar);
@@ -127,5 +126,8 @@ fn main() {
     }
 
     // Generate the associated state machine.
-    let _sm = StateMachine::try_from(&is).expect("failed to generate state machine");
+    let sm = StateMachine::try_from(&is).expect("failed to generate state machine");
+    let stdout = std::io::stdout();
+    generate_parser(&mut stdout.lock(), &backend, &sm, &grammar)
+        .expect("failed to generate parser code");
 }
