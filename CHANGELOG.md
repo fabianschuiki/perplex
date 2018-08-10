@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Grammar parser is now self-hosted (generated based on a grammar file).
 - Make backend annotations in grammar files optional.
 - Detect reconverging grammars in GLR analysis.
+- Improve grammar rule ID printing.
 
 ## 0.3.0 - 2018-08-10
 ### Added

@@ -44,7 +44,7 @@ pub struct NonterminalId(usize);
 pub struct TerminalId(usize);
 
 /// A unique rule identifier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RuleId(usize);
 
 /// The start rule `$accept -> S`.
@@ -361,5 +361,17 @@ impl RuleId {
     /// Obtain the id as a usize.
     pub fn as_usize(self) -> usize {
         self.0
+    }
+}
+
+impl fmt::Display for RuleId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "r{}", self.0)
+    }
+}
+
+impl fmt::Debug for RuleId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
     }
 }
