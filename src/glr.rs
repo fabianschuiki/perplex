@@ -7,7 +7,7 @@ use std::ops::{Index, IndexMut};
 use std::collections::{HashSet, VecDeque};
 use indexmap::{IndexMap, IndexSet};
 
-use grammar::{Grammar, Symbol, TerminalId};
+use grammar::{Grammar, RuleId, Symbol, TerminalId};
 use item_set::{Action, ItemSetId, ItemSets};
 
 /// An analysis of conflicts and their resolvability via GLR/LR(k).
@@ -177,7 +177,7 @@ fn advance_node_to_shift(
                     // back through the current lane's sequence, and its parent
                     // sequences.
                     let mut lanes = Vec::new();
-                    backtrack_lane(&lane, len, &arc, &mut lanes);
+                    backtrack_lane(&lane, len, rule_id, &arc, item_sets, &mut lanes);
 
                     // Perform the goto actions for each of the backtracked
                     // lanes.
@@ -227,7 +227,9 @@ fn advance_node_to_shift(
 fn backtrack_lane(
     lane: &ConflictLane,
     len: usize,
+    rule_id: RuleId,
     arc: &ConflictArc,
+    item_sets: &ItemSets,
     into: &mut Vec<ConflictLane>,
 ) {
     trace!("    - backtrack {} symbols in lane {:?}", len, lane);
@@ -237,14 +239,46 @@ fn backtrack_lane(
             seq: lane.seq[0..lane.seq.len() - len].into(),
         });
     } else {
+        // If this is the conflict root, we have to extrapolate backwards where
+        // this reduce action might land us in the state space.
         if lane.parents.is_empty() {
-            panic!(
-                "backtracking {} symbols in lane {:?} escapes parser subspace",
-                len, lane,
-            );
+            let mut origins = IndexSet::new();
+            origins.insert(lane.last());
+            trace!("    - extrapolating from {:?}", origins);
+            for marker in (0..len).rev() {
+                origins = item_sets
+                    .all()
+                    .iter()
+                    .filter_map(|is| {
+                        if is.items()
+                            .iter()
+                            .filter(|item| item.rule() == rule_id && item.marker() == marker)
+                            .any(|item| match item.action() {
+                                Some((_, Action::Shift(target))) => origins.contains(&target),
+                                _ => false,
+                            }) {
+                            Some(is.id)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                trace!("    - extrapolated to {:?} (marker = {})", origins, marker);
+            }
+            into.extend(origins.into_iter().map(|id| ConflictLane {
+                parents: vec![],
+                seq: vec![id],
+            }));
         }
         for &(node_id, lane_id) in lane.parents.iter() {
-            backtrack_lane(&arc[node_id][lane_id], len - lane.seq.len(), arc, into);
+            backtrack_lane(
+                &arc[node_id][lane_id],
+                len - lane.seq.len(),
+                rule_id,
+                arc,
+                item_sets,
+                into,
+            );
         }
     }
 }
