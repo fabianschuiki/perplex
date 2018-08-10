@@ -91,6 +91,7 @@ pub fn find_conflict_arc(
                 ],
                 shifts: vec![],
                 resolved: false,
+                reconverged: false,
             },
         ],
         ranks: vec![vec![ConflictNodeId(0)]],
@@ -195,10 +196,10 @@ fn advance_node_to_shift(
                                         trace!("    - goto {:?}", target);
                                         let mut new_lane = lane.clone();
                                         new_lane.seq.push(target);
-                                        if !visited.contains(&new_lane) {
-                                            visited.insert(new_lane.clone());
-                                            todo.push_back(new_lane);
-                                        }
+                                        // if !visited.contains(&new_lane) {
+                                        visited.insert(new_lane.clone());
+                                        todo.push_back(new_lane);
+                                        // }
                                     }
                                     _ => unreachable!(),
                                 }
@@ -329,7 +330,8 @@ fn spawn_next_rank(arc: &mut ConflictArc, grammar: &Grammar, item_sets: &ItemSet
         trace!(" - parents = {:?}", parents);
         let mut all_resolved = true;
         for (terminal, mut item_sets) in shifts {
-            if item_sets.len() > 1 {
+            let reconverged = item_sets.iter().any(|is| parents[is].len() > 1);
+            if item_sets.len() > 1 || reconverged {
                 trace!(
                     " - shift {} has item sets {:?}",
                     terminal.pretty(grammar),
@@ -351,6 +353,7 @@ fn spawn_next_rank(arc: &mut ConflictArc, grammar: &Grammar, item_sets: &ItemSet
                     lanes: new_lanes,
                     shifts: vec![],
                     resolved: false,
+                    reconverged: reconverged,
                 };
                 arc.nodes.push(new_node);
                 new_rank_nodes.push(new_node_id);
@@ -429,6 +432,7 @@ pub struct ConflictNode {
     lanes: Vec<ConflictLane>,
     shifts: Vec<(TerminalId, ConflictEdge)>,
     resolved: bool,
+    reconverged: bool,
 }
 
 /// A unique identifier for a lane in a conflict node.
