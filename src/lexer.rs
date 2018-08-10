@@ -54,9 +54,40 @@ impl<T: Iterator<Item = (usize, char)>> Lexer<T> {
     }
 }
 
-/// Return the next non-whitespace input character.
-fn next_relevant<I: Iterator<Item = (usize, char)>>(input: &mut I) -> Option<(usize, char)> {
-    while let Some((p, c)) = input.next() {
+/// Return the next non-whitespace input character, skipping comments.
+fn next_relevant<I: Iterator<Item = (usize, char)>>(
+    input: &mut Peekable<I>,
+) -> Option<(usize, char)> {
+    'outer: while let Some((p, c)) = input.next() {
+        if c == '/' {
+            match input.peek() {
+                Some(&(_, '/')) => {
+                    input.next();
+                    while let Some((_, c)) = input.next() {
+                        if c == '\n' {
+                            continue 'outer;
+                        }
+                    }
+                    return None; // end of input reached
+                }
+                Some(&(_, '*')) => {
+                    input.next();
+                    while let Some((_, c)) = input.next() {
+                        if c != '*' {
+                            continue;
+                        }
+                        if let Some(&(_, c)) = input.peek() {
+                            if c == '/' {
+                                input.next();
+                                continue 'outer;
+                            }
+                        }
+                    }
+                    return None; // end of input reached
+                }
+                _ => (),
+            }
+        }
         if !c.is_whitespace() {
             return Some((p, c));
         }
@@ -93,10 +124,17 @@ impl<T: Iterator<Item = (usize, char)>> Iterator for Lexer<T> {
             '\'' => {
                 let mut buffer = String::new();
                 buffer.push(sc);
+                let mut escaped = false;
                 while let Some((ep, ec)) = self.input.next() {
+                    escaped = if buffer.ends_with('\\') && !escaped {
+                        buffer.pop();
+                        true
+                    } else {
+                        false
+                    };
                     buffer.push(ec);
                     sl = ep + ec.len_utf8();
-                    if ec == '\'' {
+                    if ec == '\'' && !escaped {
                         break;
                     }
                 }
@@ -127,26 +165,67 @@ impl<T: Iterator<Item = (usize, char)>> Iterator for Lexer<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::Token::*;
+    use super::Keyword as Kw;
+
+    fn lex<S: AsRef<str>>(input: S) -> Vec<Token> {
+        let lex = Lexer::new(input.as_ref().char_indices());
+        lex.map(|(_, _, tkn)| tkn).collect()
+    }
 
     #[test]
     fn tokens1() {
-        let input = "token IDENT;";
-        let lex = Lexer::new(input.char_indices());
-        let tkn: Vec<_> = lex.map(|(_, _, tkn)| tkn).collect();
         assert_eq!(
-            format!("{:?}", tkn),
-            "[Keyword(Token), Ident(\"IDENT\"), Semicolon]"
+            lex("token IDENT;"),
+            vec![Keyword(Kw::Token), Ident("IDENT".into()), Semicolon]
         );
     }
 
     #[test]
     fn tokens2() {
-        let input = "ident_list : ident_list ',' IDENT | IDENT ;";
-        let lex = Lexer::new(input.char_indices());
-        let tkn: Vec<_> = lex.map(|(_, _, tkn)| tkn).collect();
         assert_eq!(
-            format!("{:?}", tkn),
-            "[Ident(\"ident_list\"), Colon, Ident(\"ident_list\"), Ident(\"\\',\\'\"), Ident(\"IDENT\"), Pipe, Ident(\"IDENT\"), Semicolon]"
+            lex("ident_list : ident_list ',' IDENT | IDENT ;"),
+            vec![
+                Ident("ident_list".into()),
+                Colon,
+                Ident("ident_list".into()),
+                Ident("','".into()),
+                Ident("IDENT".into()),
+                Pipe,
+                Ident("IDENT".into()),
+                Semicolon,
+            ]
+        );
+    }
+
+    #[test]
+    fn comment_single_line() {
+        assert_eq!(lex("| // comment\n ; // comment"), vec![Pipe, Semicolon]);
+    }
+
+    #[test]
+    fn comment_inline() {
+        assert_eq!(lex("| /* comment */ ;"), vec![Pipe, Semicolon]);
+    }
+
+    #[test]
+    fn comment_multiple_lines() {
+        assert_eq!(lex("| /* comment \n comment */ ;"), vec![Pipe, Semicolon]);
+    }
+
+    #[test]
+    fn quoted_escapes() {
+        assert_eq!(
+            lex("token 'some \\'stuff\\''"),
+            vec![Keyword(Kw::Token), Ident("'some 'stuff''".into())]
+        );
+    }
+
+    #[test]
+    fn quoted_escapes_backslash() {
+        assert_eq!(
+            lex("token 'abc \\\\ def'"),
+            vec![Keyword(Kw::Token), Ident("'abc \\ def'".into())]
         );
     }
 }
