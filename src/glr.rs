@@ -80,6 +80,7 @@ pub fn find_conflict_arc(
     // such that each item set it contains is at a location where a shift may
     // occur.
     let mut arc = ConflictArc {
+        origin: conflict.item_set,
         nodes: vec![
             ConflictNode {
                 rank: 0,
@@ -391,6 +392,7 @@ fn spawn_next_rank(arc: &mut ConflictArc, grammar: &Grammar, item_sets: &ItemSet
 /// graph describes parallel execution of the parser state machine.
 #[derive(Debug)]
 pub struct ConflictArc {
+    origin: ItemSetId,
     nodes: Vec<ConflictNode>,
     ranks: Vec<Vec<ConflictNodeId>>,
 }
