@@ -1,11 +1,15 @@
 // Copyright (c) 2018 Fabian Schuiki
 #[macro_use]
 extern crate clap;
+#[macro_use]
+extern crate log;
 extern crate memmap;
 extern crate perplex;
+extern crate stderrlog;
 
 use std::fs::File;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use clap::{App, Arg};
 use memmap::Mmap;
@@ -15,7 +19,7 @@ use perplex::machine::StateMachine;
 // use perplex::backend::{generate_parser, Backend};
 use perplex::lexer::Lexer;
 use perplex::parser::parse_iter;
-use perplex::glr::GlrAnalysis;
+use perplex::glr;
 
 fn main() {
     // Parse the command line arguments.
@@ -27,6 +31,24 @@ fn main() {
                 .help("The input grammar to process")
                 .required(true)
                 .index(1),
+        )
+        .arg(
+            Arg::with_name("verbosity")
+                .short("v")
+                .multiple(true)
+                .help("Increase message verbosity"),
+        )
+        .arg(
+            Arg::with_name("quiet")
+                .short("q")
+                .help("Silence all output"),
+        )
+        .arg(
+            Arg::with_name("timestamp")
+                .short("t")
+                .help("Prefix messages with a timestamp")
+                .takes_value(true)
+                .possible_values(&["sec", "ms", "ns"]),
         )
         .arg(
             Arg::with_name("dump_ast")
@@ -44,6 +66,30 @@ fn main() {
                 .help("Compute conflict arcs in the state space"),
         )
         .get_matches();
+
+    // Process the logging options and configure the stderrlog crate.
+    let verbose = matches.occurrences_of("verbosity") as usize;
+    let quiet = matches.is_present("quiet");
+    let ts = matches
+        .value_of("timestamp")
+        .map(|v| {
+            stderrlog::Timestamp::from_str(v).unwrap_or_else(|_| {
+                clap::Error {
+                    message: "invalid value for 'timestamp'".into(),
+                    kind: clap::ErrorKind::InvalidValue,
+                    info: None,
+                }.exit()
+            })
+        })
+        .unwrap_or(stderrlog::Timestamp::Off);
+
+    stderrlog::new()
+        .module(module_path!())
+        .quiet(quiet)
+        .verbosity(verbose)
+        .timestamp(ts)
+        .init()
+        .unwrap();
 
     // Parse the input grammar description.
     let desc = {
@@ -109,8 +155,16 @@ fn main() {
 
     // Compute conflict arcs.
     if matches.is_present("conflict_arcs") {
-        let ga = GlrAnalysis::compute(&grammar, &is);
-        println!("{:#?}", ga);
+        let conflicts = glr::find_conflicts(&is);
+        for (i, conflict) in conflicts.iter().enumerate() {
+            println!("#{}: {:#?}", i, conflict);
+        }
+        for (i, conflict) in conflicts.iter().enumerate() {
+            let arc = glr::find_conflict_arc(&conflict, &grammar, &is);
+            println!("#{}: {:#?}", i, arc);
+        }
+        // let ga = GlrAnalysis::compute(&grammar, &is);
+        // println!("{:#?}", ga);
         return;
     }
 

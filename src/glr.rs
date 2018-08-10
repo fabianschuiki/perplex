@@ -20,7 +20,7 @@ impl GlrAnalysis {
         let conflicts = find_conflicts(item_sets);
         for conflict in conflicts {
             let arc = find_conflict_arc(&conflict, grammar, item_sets);
-            println!("{:#?}", arc);
+            trace!("{:#?}", arc);
         }
         GlrAnalysis {}
     }
@@ -75,7 +75,7 @@ pub fn find_conflict_arc(
     grammar: &Grammar,
     item_sets: &ItemSets,
 ) -> ConflictArc {
-    println!("analyzing {:#?}", conflict);
+    debug!("analyzing {:#?}", conflict);
     // Initialize the conflict arc with one root node. Then advance that node
     // such that each item set it contains is at a location where a shift may
     // occur.
@@ -96,11 +96,11 @@ pub fn find_conflict_arc(
         ranks: vec![vec![ConflictNodeId(0)]],
     };
     advance_node_to_shift(&mut arc, ConflictNodeId(0), grammar, item_sets);
-    println!("{:#?}", arc);
+    trace!("{:#?}", arc);
     // spawn_next_rank(&mut arc, grammar, item_sets);
-    // println!("{:#?}", arc);
+    // trace!("{:#?}", arc);
     // advance_node_to_shift(&mut arc, ConflictNodeId(1), grammar, item_sets);
-    // println!("{:#?}", arc);
+    // trace!("{:#?}", arc);
 
     // Iteratively advance the arc through the state space until all ambiguities
     // have been resolved (i.e. when no more ranks are spawned).
@@ -108,16 +108,16 @@ pub fn find_conflict_arc(
         if i > 1000 {
             panic!("conflict arc analysis did not converge after 1000 iterations");
         }
-        println!("step {}", i);
+        debug!("step {}", i);
         let any_spawned = spawn_next_rank(&mut arc, grammar, item_sets);
         if !any_spawned {
             break;
         }
-        // println!("{:#?}", arc);
+        // trace!("{:#?}", arc);
         for node_id in arc.ranks.last().unwrap().clone() {
             advance_node_to_shift(&mut arc, node_id, grammar, item_sets);
         }
-        // println!("{:#?}", arc);
+        // trace!("{:#?}", arc);
     }
 
     arc
@@ -145,7 +145,7 @@ fn advance_node_to_shift(
 
     while let Some(lane) = todo.pop_front() {
         let id = lane.last();
-        println!("advancing lane {:?} ({:?})", lane, id);
+        debug!("advancing lane {:?} ({:?})", lane, id);
 
         let mut any_shifts = false;
         let mut visited_reductions = HashSet::new();
@@ -167,7 +167,7 @@ fn advance_node_to_shift(
                     // Count the number of symbols in this reduction. We use
                     // this number to backtrack through the arc nodes.
                     let len = grammar[rule_id].symbols().len();
-                    println!(
+                    trace!(
                         " - reduction r{} covers {} symbols",
                         rule_id.as_usize(),
                         len
@@ -183,7 +183,7 @@ fn advance_node_to_shift(
                     // lanes.
                     for lane in lanes {
                         let id = lane.last();
-                        println!(" - lookup goto {} at {:?}", nt.pretty(grammar), id);
+                        trace!(" - lookup goto {} at {:?}", nt.pretty(grammar), id);
                         let mut visited_targets = HashSet::new();
                         for &(symbol, action) in item_sets[id].actions() {
                             if symbol == Symbol::Nonterminal(nt) {
@@ -192,7 +192,7 @@ fn advance_node_to_shift(
                                         if !visited_targets.insert(target) {
                                             continue;
                                         }
-                                        println!("    - goto {:?}", target);
+                                        trace!("    - goto {:?}", target);
                                         let mut new_lane = lane.clone();
                                         new_lane.seq.push(target);
                                         if !visited.contains(&new_lane) {
@@ -213,7 +213,7 @@ fn advance_node_to_shift(
         // If there were any actions that shift terminals, add the lane to the
         // node.
         if any_shifts {
-            println!(" - has shifts");
+            trace!(" - has shifts");
             new_lanes.push(lane);
         }
     }
@@ -230,7 +230,7 @@ fn backtrack_lane(
     arc: &ConflictArc,
     into: &mut Vec<ConflictLane>,
 ) {
-    println!("    - backtrack {} symbols in lane {:?}", len, lane);
+    trace!("    - backtrack {} symbols in lane {:?}", len, lane);
     if len < lane.seq.len() {
         into.push(ConflictLane {
             parents: lane.parents.clone(),
@@ -257,7 +257,7 @@ fn spawn_next_rank(arc: &mut ConflictArc, grammar: &Grammar, item_sets: &ItemSet
     let mut new_rank_nodes = vec![];
 
     for node_id in arc.ranks.last().unwrap().clone() {
-        println!("expanding {}", node_id);
+        debug!("expanding {}", node_id);
 
         // Determine the item sets that are destinations of shift actions. Group
         // these sets by the terminal that causes the shift. This then indicates
@@ -271,10 +271,10 @@ fn spawn_next_rank(arc: &mut ConflictArc, grammar: &Grammar, item_sets: &ItemSet
             .enumerate()
             .map(|(i, l)| (ConflictLaneId(i), l.last()))
         {
-            println!(" - tracing {} from {:?}", node_id, item_set);
+            trace!(" - tracing {} from {:?}", node_id, item_set);
             for &(symbol, action) in item_sets[item_set].actions() {
                 if let (Symbol::Terminal(t), Action::Shift(target)) = (symbol, action) {
-                    println!("    - {} -> i{}", t.pretty(grammar), target);
+                    trace!("    - {} -> i{}", t.pretty(grammar), target);
                     shifts.entry(t).or_insert_with(IndexSet::new).insert(target);
                     parents
                         .entry(target)
@@ -291,12 +291,12 @@ fn spawn_next_rank(arc: &mut ConflictArc, grammar: &Grammar, item_sets: &ItemSet
         // Create new nodes in the conflict arc for each shift that causes
         // an ambiguity as indicated by multiple target item sets. All other
         // shifts indicate a resolution of ambiguity.
-        println!(" - shifts = {:?}", shifts);
-        println!(" - parents = {:?}", parents);
+        trace!(" - shifts = {:?}", shifts);
+        trace!(" - parents = {:?}", parents);
         let mut all_resolved = true;
         for (terminal, mut item_sets) in shifts {
             if item_sets.len() > 1 {
-                println!(
+                trace!(
                     " - shift {} has item sets {:?}",
                     terminal.pretty(grammar),
                     item_sets
@@ -325,7 +325,7 @@ fn spawn_next_rank(arc: &mut ConflictArc, grammar: &Grammar, item_sets: &ItemSet
                     .push((terminal, ConflictEdge::Ambiguous(new_node_id)));
                 all_resolved = false;
             } else {
-                println!(" - shift {} resolves ambiguity", terminal.pretty(grammar));
+                trace!(" - shift {} resolves ambiguity", terminal.pretty(grammar));
                 arc[node_id]
                     .shifts
                     .push((terminal, ConflictEdge::Resolved(item_sets.pop().unwrap())));

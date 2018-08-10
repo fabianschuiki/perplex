@@ -8,3 +8,4 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Comments in grammar files.
 - Backslash escapes inside quoted identifiers in grammar files.
+- Detailed verbosity control for the command line tool (options `-v|-vv|-vvv|-vvvv|-vvvvv|-q|-t`).

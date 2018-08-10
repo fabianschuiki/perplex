@@ -6,6 +6,8 @@
 
 extern crate bit_set;
 extern crate indexmap;
+#[macro_use]
+extern crate log;
 extern crate perplex_runtime;
 
 pub mod grammar;

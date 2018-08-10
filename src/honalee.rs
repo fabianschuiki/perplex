@@ -33,8 +33,8 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
             },
         ],
     );
+    trace!("initial item set: {}", initial.pretty(grammar));
     todo_list.push(initial);
-    // println!("initial item set: {}", initial.pretty(grammar));
 
     // The main loop.
     let mut next_id = 1; // ID for new sets
@@ -44,7 +44,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
         // for transition generation.
         'todo_sets: for mut item_set in todo_list.drain(..) {
             item_set.closure(grammar, &first_sets);
-            // println!("phase 1: {}", item_set.pretty(grammar));
+            trace!("phase 1: {}", item_set.pretty(grammar));
 
             // Generate the reduce actions of this item set.
             let mut reduce_lookup: HashMap<Symbol, RuleId> = HashMap::new();
@@ -77,10 +77,10 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                     .iter()
                     .flat_map(|i| i.iter())
                 {
-                    // println!("- maybe can be merged with {}", index,);
-                    // println!("reduce_lookup: {:?}", reduce_lookup);
-                    // println!("merge_set.actions: {:?}", done_list[index].actions);
-                    // println!("{}", done_list[index].pretty(grammar));
+                    trace!("- maybe can be merged with {}", index);
+                    trace!("reduce_lookup: {:?}", reduce_lookup);
+                    // trace!("merge_set.actions: {:?}", done_list[index].actions);
+                    trace!("{}", done_list[index].pretty(grammar));
 
                     // Make sure that merging would not produce any conflicts.
                     let no_conflicts = done_list[index].actions().all(|&(symbol, merge_rule)| {
@@ -90,7 +90,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                         }
                     });
                     if no_conflicts {
-                        // println!("- merging");
+                        trace!("- merging");
                         if let Some(come_from) = come_from {
                             done_list[come_from].replace_actions(
                                 Action::Shift(item_set.id),
@@ -98,7 +98,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                             );
                         }
                         done_list[index].merge(item_set);
-                        // println!("merged: {}", done_list[index].pretty(grammar));
+                        trace!("merged: {}", done_list[index].pretty(grammar));
                         inc_list.insert(index);
                         continue 'todo_sets;
                     }
@@ -128,8 +128,8 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
         if let Some(&index) = inc_list.iter().next() {
             inc_list.remove(&index);
             let mut item_set = &mut done_list[index];
-            // println!("phase 2:");
-            // println!("{}", item_set.pretty(grammar));
+            trace!("phase 2:");
+            trace!("{}", item_set.pretty(grammar));
 
             let root_symbol = Symbol::Nonterminal(NonterminalId::from_usize(0));
             let mut treated = BitSet::with_capacity(item_set.items.len());
@@ -151,7 +151,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                         continue;
                     }
                 };
-                // println!("- shift {}", symbol.pretty(grammar));
+                trace!("- shift {}", symbol.pretty(grammar));
 
                 let mut new_set = ItemSet::new(ItemSetId::from_usize(next_id));
                 next_id += 1;
@@ -189,7 +189,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
 
                 new_set.kernel = new_set.items.len();
 
-                // println!("{}", new_set.pretty(grammar));
+                trace!("{}", new_set.pretty(grammar));
                 todo_list.push(new_set);
             }
 
