@@ -139,9 +139,36 @@ fn main() {
             let arc = glr::find_conflict_arc(&conflict, &grammar, &is);
             println!("#{}: {:#?}", i, arc);
             let reconvs = glr::find_reconvergences(&arc);
-            for reconv in reconvs {
+            for (n, reconv) in reconvs.into_iter().enumerate() {
                 let ambig = glr::find_local_ambiguity(&reconv, &arc);
-                glr::resolve_local_ambiguity(&ambig, &arc, &grammar, &is);
+                let unify = glr::resolve_local_ambiguity(&ambig, &grammar, &is);
+                println!(
+                    "#{}.{}: Ambiguity between {:?} and {:?}",
+                    i, n, ambig.first, ambig.last
+                );
+                for seq in &ambig.seqs {
+                    println!("    States {:?} {:?} {:?}", ambig.first, seq, ambig.last);
+                }
+                println!("    Resolve by replacing the following rules:");
+                for slice in &unify {
+                    println!(
+                        "    {} (the `{}` part)",
+                        grammar[slice.rule].pretty(&grammar),
+                        slice.pretty(&grammar)
+                    );
+                }
+                let rule = &grammar[unify[0].rule];
+                println!("    With:");
+                print!("    [{} ->", rule.name().pretty(&grammar));
+                for i in 0..unify[0].from {
+                    print!(" {}", rule.symbols()[i].pretty(&grammar));
+                }
+                print!(" X");
+                for i in unify[0].to..rule.symbols().len() {
+                    print!(" {}", rule.symbols()[i].pretty(&grammar));
+                }
+                println!("]");
+                println!("    Where `X` represents all of the removed parts.");
             }
         }
         // let ga = GlrAnalysis::compute(&grammar, &is);

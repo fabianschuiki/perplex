@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Detect local ambiguities (reconvergent state traces).
 - Grammar rule pretty printing.
 - The `ItemSet::kernel_items` function.
+- Local ambiguity and resolution printing.
+- Rule slices.
 
 ### Changed
 - Grammar parser is now self-hosted (generated based on a grammar file).
@@ -18,6 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Improve grammar rule ID printing.
 - `Conflict` fields made public.
 - Improve conflict reporting.
+- `LocalAmbiguity` fields made public.
 
 ## 0.3.0 - 2018-08-10
 ### Added

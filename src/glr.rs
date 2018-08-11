@@ -7,6 +7,7 @@ use std::ops::{Index, IndexMut};
 use std::collections::{HashSet, VecDeque};
 use indexmap::{IndexMap, IndexSet};
 
+use Pretty;
 use grammar::{Grammar, RuleId, Symbol, TerminalId};
 use item_set::{Action, ItemSetId, ItemSets};
 
@@ -487,13 +488,12 @@ fn trace_states_backwards(
     }
 }
 
-/// Propose a grammar change to resolve a local ambiguity.
+/// Identify the rule slices which must be unified to resolve an ambiguity.
 pub fn resolve_local_ambiguity(
     ambig: &LocalAmbiguity,
-    arc: &ConflictArc,
     grammar: &Grammar,
     item_sets: &ItemSets,
-) {
+) -> Vec<RuleSlice> {
     debug!("resolving {:?}", ambig);
 
     // Identify the common nonterminals.
@@ -562,15 +562,25 @@ pub fn resolve_local_ambiguity(
 
     trace!(" - common prefix = {}, suffix = {}", prefix_len, suffix_len);
 
-    // Compute the replacement rule.
-    let unify_seqs: Vec<Vec<_>> = unify_rules
+    // // Compute the replacement rule.
+    // let unify_seqs: Vec<Vec<_>> = unify_rules
+    //     .iter()
+    //     .map(|&id| {
+    //         let symbols = grammar[id].symbols();
+    //         symbols[prefix_len..(symbols.len() - suffix_len)].into()
+    //     })
+    //     .collect();
+    // trace!(" - unify sequences {:?}", unify_seqs);
+
+    // Wrap the findings up in a vector of rule slices.
+    unify_rules
         .iter()
-        .map(|&id| {
-            let symbols = grammar[id].symbols();
-            symbols[prefix_len..(symbols.len() - suffix_len)].into()
+        .map(|&id| RuleSlice {
+            rule: id,
+            from: prefix_len,
+            to: grammar[id].symbols().len() - suffix_len,
         })
-        .collect();
-    trace!(" - unify sequences {:?}", unify_seqs);
+        .collect()
 }
 
 /// A subspace of a parser's state space within which a conflict is active.
@@ -726,10 +736,42 @@ impl fmt::Debug for Reconv {
     }
 }
 
-/// A local ambiguity in the grammar.
+/// A local ambiguity in a grammar.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LocalAmbiguity {
-    first: ItemSetId,
-    seqs: Vec<Vec<ItemSetId>>,
-    last: ItemSetId,
+    /// The last item set before the ambiguity common to all sequences.
+    pub first: ItemSetId,
+    /// The sequences between the common item sets.
+    pub seqs: Vec<Vec<ItemSetId>>,
+    /// The first item set after the ambiguity common to all sequences.
+    pub last: ItemSetId,
+}
+
+/// A resolution to a local ambiguity in a grammar.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RuleSlice {
+    /// The rule in the grammar this slice refers to.
+    pub rule: RuleId,
+    /// The first symbol of the slice, inclusive.
+    pub from: usize,
+    /// The last symbol of the slice, exclusive.
+    pub to: usize,
+}
+
+impl RuleSlice {
+    /// Get a pretty printer for this rule slice.
+    pub fn pretty<'a>(&'a self, grammar: &'a Grammar) -> Pretty<&'a Grammar, &'a Self> {
+        Pretty::new(grammar, self)
+    }
+}
+
+impl<'a> fmt::Display for Pretty<&'a Grammar, &'a RuleSlice> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use std::iter::{once, repeat};
+        let symbols = &self.ctx[self.item.rule].symbols()[self.item.from..self.item.to];
+        for (sep, sym) in once("").chain(repeat(" ")).zip(symbols.iter()) {
+            write!(f, "{}{}", sep, sym.pretty(self.ctx))?;
+        }
+        Ok(())
+    }
 }
