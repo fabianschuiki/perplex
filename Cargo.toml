@@ -5,6 +5,7 @@ authors = ["Fabian Schuiki <fabian@schuiki.ch>"]
 description = "A grammar analyzer and LR(k)/GLR parser generator."
 repository = "https://github.com/fabianschuiki/perplex"
 documentation = "https://docs.rs/perplex"
+license-file = "LICENSE"
 
 [[bin]]
 name = "perplex"
