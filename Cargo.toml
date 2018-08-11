@@ -2,6 +2,9 @@
 name = "perplex"
 version = "0.4.0"
 authors = ["Fabian Schuiki <fabian@schuiki.ch>"]
+description = "A grammar analyzer and LR(k)/GLR parser generator."
+repository = "https://github.com/fabianschuiki/perplex"
+documentation = "https://docs.rs/perplex"
 
 [[bin]]
 name = "perplex"
@@ -16,4 +19,4 @@ memmap = "0.6.2"
 indexmap = "1.0.1"
 log = "0.4"
 stderrlog = "0.4.1"
-perplex-runtime = { path = "src/runtime" }
+perplex-runtime = { path = "src/runtime", version = "0.1.0" }
