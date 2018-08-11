@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 ### Added
 - Detect reconverging grammars in GLR analysis.
-- Separately track shift/reduce history in conflict arcs.
+- Separately track state history in conflict arcs.
 
 ### Changed
 - Grammar parser is now self-hosted (generated based on a grammar file).
