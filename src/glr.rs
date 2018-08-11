@@ -21,6 +21,8 @@ impl GlrAnalysis {
         for conflict in conflicts {
             let arc = find_conflict_arc(&conflict, grammar, item_sets);
             trace!("{:#?}", arc);
+            let reconvs = find_reconvergences(&arc);
+            trace!("reconvergences {:#?}", reconvs);
         }
         GlrAnalysis {}
     }
@@ -390,6 +392,98 @@ fn spawn_next_rank(arc: &mut ConflictArc, grammar: &Grammar, item_sets: &ItemSet
     }
 }
 
+/// Find all points of reconvergence in an arc.
+pub fn find_reconvergences(arc: &ConflictArc) -> Vec<Reconv> {
+    let mut v = vec![];
+    for (node_id, node) in arc.nodes.iter().enumerate() {
+        let node_id = ConflictNodeId(node_id);
+        for (lane_id, lane) in node.lanes.iter().enumerate() {
+            let lane_id = ConflictLaneId(lane_id);
+            if lane.ancestors.len() > 1 {
+                v.push(Reconv {
+                    at: (node_id, lane_id),
+                    from: lane.ancestors.clone(),
+                });
+            }
+        }
+    }
+    v
+}
+
+/// Find the local ambiguity associated with a point of reconvergence.
+pub fn find_local_ambiguity(reconv: &Reconv, arc: &ConflictArc) -> LocalAmbiguity {
+    // Trace state progressions from the ambiguity backwards.
+    debug!("find ambiguity at {:?}", reconv);
+    let traces: Vec<_> = reconv
+        .from
+        .iter()
+        .flat_map(|&(node_id, lane_id)| {
+            let states = arc[reconv.at.0][reconv.at.1].states.clone();
+            trace_states_backwards(node_id, lane_id, arc, states).into_iter()
+        })
+        .collect();
+    trace!(" - traced {:?}", traces);
+
+    // Find the common prefix and suffix of the traces.
+    let shortest = traces.iter().map(Vec::len).min().unwrap();
+
+    let mut prefix_len = 0;
+    for i in 0..shortest {
+        let state = traces[0][i];
+        if traces.iter().any(|trace| trace[i] != state) {
+            break;
+        }
+        prefix_len = i + 1;
+    }
+    assert!(prefix_len > 0, "prefix length should be at least one state, since the traces contain the initial common state");
+
+    let mut suffix_len = 0;
+    for i in 0..shortest {
+        let state = traces[0][traces[0].len() - i - 1];
+        if traces
+            .iter()
+            .any(|trace| trace[trace.len() - i - 1] != state)
+        {
+            break;
+        }
+        suffix_len = i + 1;
+    }
+    assert!(suffix_len > 0, "suffix length should be at least one state, since the traces contain the final common state");
+
+    trace!(" - common prefix = {}, suffix = {}", prefix_len, suffix_len);
+
+    // Wrap things up in a struct.
+    LocalAmbiguity {
+        first: traces[0][prefix_len - 1],
+        last: traces[0][traces[0].len() - suffix_len],
+        seqs: traces
+            .into_iter()
+            .map(|trace| trace[prefix_len..trace.len() - suffix_len].into())
+            .collect(),
+    }
+}
+
+fn trace_states_backwards(
+    node: ConflictNodeId,
+    lane: ConflictLaneId,
+    arc: &ConflictArc,
+    tail: Vec<ItemSetId>,
+) -> Vec<Vec<ItemSetId>> {
+    let lane = &arc[node][lane];
+    let mut states = lane.states.clone();
+    states.extend(tail.iter());
+    if lane.ancestors.is_empty() {
+        vec![states]
+    } else {
+        lane.ancestors
+            .iter()
+            .flat_map(|&(node_id, lane_id)| {
+                trace_states_backwards(node_id, lane_id, arc, states.clone()).into_iter()
+            })
+            .collect()
+    }
+}
+
 /// A subspace of a parser's state space within which a conflict is active.
 ///
 /// A conflict arc is described as nodes with edges in between, the former of
@@ -528,4 +622,25 @@ impl fmt::Debug for ConflictLane {
             self.ancestors, self.parents, self.states, self.seq
         )
     }
+}
+
+/// A point of reconvergence in a conflict arc.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Reconv {
+    at: (ConflictNodeId, ConflictLaneId),
+    from: Vec<(ConflictNodeId, ConflictLaneId)>,
+}
+
+impl fmt::Debug for Reconv {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}->{:?}", self.from, self.at)
+    }
+}
+
+/// A local ambiguity in the grammar.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct LocalAmbiguity {
+    first: ItemSetId,
+    seqs: Vec<Vec<ItemSetId>>,
+    last: ItemSetId,
 }

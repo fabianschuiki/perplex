@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Detect reconverging grammars in GLR analysis.
 - Separately track state history in conflict arcs.
+- Detect local ambiguities (reconvergent state traces).
 
 ### Changed
 - Grammar parser is now self-hosted (generated based on a grammar file).

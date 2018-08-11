@@ -119,6 +119,10 @@ fn main() {
         for (i, conflict) in conflicts.iter().enumerate() {
             let arc = glr::find_conflict_arc(&conflict, &grammar, &is);
             println!("#{}: {:#?}", i, arc);
+            let reconvs = glr::find_reconvergences(&arc);
+            for reconv in reconvs {
+                let ambig = glr::find_local_ambiguity(&reconv, &arc);
+            }
         }
         // let ga = GlrAnalysis::compute(&grammar, &is);
         // println!("{:#?}", ga);

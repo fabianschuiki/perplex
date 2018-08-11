@@ -5,6 +5,6 @@ token y;
 token z;
 
 S {	T y z ; }
-T { A z; B y z; }
+T { y A z; y B y z; }
 A { x y; }
 B { x; }
