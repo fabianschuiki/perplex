@@ -236,6 +236,22 @@ impl Rule {
     pub fn symbols(&self) -> &[Symbol] {
         &self.symbols
     }
+
+    /// Get a pretty printer for this rule.
+    pub fn pretty<'a>(&'a self, grammar: &'a Grammar) -> Pretty<&'a Grammar, &'a Self> {
+        Pretty::new(grammar, self)
+    }
+}
+
+impl<'a> fmt::Display for Pretty<&'a Grammar, &'a Rule> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[{} ->", self.item.name().pretty(self.ctx))?;
+        for symbol in &self.item.symbols {
+            write!(f, " {}", symbol.pretty(self.ctx))?;
+        }
+        write!(f, "]")?;
+        Ok(())
+    }
 }
 
 impl Symbol {
