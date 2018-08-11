@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Separately track state history in conflict arcs.
 - Detect local ambiguities (reconvergent state traces).
 - Grammar rule pretty printing.
+- The `ItemSet::kernel_items` function.
 
 ### Changed
 - Grammar parser is now self-hosted (generated based on a grammar file).

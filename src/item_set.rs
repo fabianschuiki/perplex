@@ -143,6 +143,11 @@ impl ItemSet {
         &self.items
     }
 
+    /// Get the kernel items in the set.
+    pub fn kernel_items(&self) -> &[Item] {
+        &self.items[0..self.kernel]
+    }
+
     /// Get a pretty printer for this item set.
     pub fn pretty<'a>(&'a self, grammar: &'a Grammar) -> Pretty<&'a Grammar, &'a Self> {
         Pretty::new(grammar, self)
