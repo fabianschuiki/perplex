@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Grammar parser is now self-hosted (generated based on a grammar file).
 - Make backend annotations in grammar files optional.
 - Improve grammar rule ID printing.
+- `Conflict` fields made public.
 
 ## 0.3.0 - 2018-08-10
 ### Added

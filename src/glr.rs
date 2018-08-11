@@ -66,9 +66,12 @@ pub fn find_conflicts(item_sets: &ItemSets) -> Vec<Conflict> {
 /// A conflict between multiple actions triggered by the same symbol.
 #[derive(Debug)]
 pub struct Conflict {
-    item_set: ItemSetId,
-    symbol: Symbol,
-    actions: Vec<Action>,
+    /// The item set within which the conflict occured.
+    pub item_set: ItemSetId,
+    /// The symbol that triggers the conflict.
+    pub symbol: Symbol,
+    /// The conflicting actions.
+    pub actions: Vec<Action>,
 }
 
 /// Find the arc of a conflict.
