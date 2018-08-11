@@ -484,6 +484,92 @@ fn trace_states_backwards(
     }
 }
 
+/// Propose a grammar change to resolve a local ambiguity.
+pub fn resolve_local_ambiguity(
+    ambig: &LocalAmbiguity,
+    arc: &ConflictArc,
+    grammar: &Grammar,
+    item_sets: &ItemSets,
+) {
+    debug!("resolving {:?}", ambig);
+
+    // Identify the common nonterminals.
+    let nonterms = {
+        let mut sets = ambig.seqs.iter().map(|seq| {
+            item_sets[*seq.last().unwrap()]
+                .items()
+                .iter()
+                .map(|item| grammar[item.rule].name())
+                .collect::<HashSet<_>>()
+        });
+        let mut intersected = sets.next().unwrap();
+        for set in sets {
+            intersected.retain(|nt| set.contains(nt));
+        }
+        intersected
+    };
+    trace!(" - nonterminals {:?}", nonterms);
+
+    // Identify the rules in the grammar that need to be unified.
+    let unify_rules: IndexSet<_> = ambig
+        .seqs
+        .iter()
+        .flat_map(|seq| item_sets[*seq.last().unwrap()].items().iter())
+        .filter_map(|item| {
+            let id = item.rule();
+            if nonterms.contains(&grammar[id].name()) {
+                Some(id)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    for &id in &unify_rules {
+        trace!(" - unify {:?} {}", id, grammar[id].pretty(grammar));
+    }
+
+    // Find the common prefix and suffix among the rules to be unified.
+    let shortest = unify_rules
+        .iter()
+        .map(|&id| grammar[id].symbols().len())
+        .min()
+        .unwrap();
+
+    let prefix_len = (0..shortest)
+        .take_while(|&i| {
+            let mut iter = unify_rules.iter().cloned();
+            let symbol = grammar[iter.next().unwrap()].symbols()[i];
+            iter.all(|id| grammar[id].symbols()[i] == symbol)
+        })
+        .last()
+        .map(|i| i + 1)
+        .unwrap_or(0);
+
+    let suffix_len = (0..shortest)
+        .take_while(|&i| {
+            let mut iter = unify_rules.iter().cloned();
+            let symbols = grammar[iter.next().unwrap()].symbols();
+            let symbol = symbols[symbols.len() - i - 1];
+            iter.all(|id| grammar[id].symbols()[grammar[id].symbols().len() - i - 1] == symbol)
+        })
+        .last()
+        .map(|i| i + 1)
+        .unwrap_or(0);
+
+    trace!(" - common prefix = {}, suffix = {}", prefix_len, suffix_len);
+
+    // Compute the replacement rule.
+    let unify_seqs: Vec<Vec<_>> = unify_rules
+        .iter()
+        .map(|&id| {
+            let symbols = grammar[id].symbols();
+            symbols[prefix_len..(symbols.len() - suffix_len)].into()
+        })
+        .collect();
+    trace!(" - unify sequences {:?}", unify_seqs);
+}
+
 /// A subspace of a parser's state space within which a conflict is active.
 ///
 /// A conflict arc is described as nodes with edges in between, the former of

@@ -122,6 +122,7 @@ fn main() {
             let reconvs = glr::find_reconvergences(&arc);
             for reconv in reconvs {
                 let ambig = glr::find_local_ambiguity(&reconv, &arc);
+                glr::resolve_local_ambiguity(&ambig, &arc, &grammar, &is);
             }
         }
         // let ga = GlrAnalysis::compute(&grammar, &is);
