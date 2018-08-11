@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use clap::{App, Arg};
 use memmap::Mmap;
-use perplex::item_set::ItemSets;
+use perplex::item_set::{Action, ItemSets};
 use perplex::machine::StateMachine;
 use perplex::backend::generate_parser;
 use perplex::parser;
@@ -114,7 +114,26 @@ fn main() {
     if matches.is_present("conflict_arcs") {
         let conflicts = glr::find_conflicts(&is);
         for (i, conflict) in conflicts.iter().enumerate() {
-            println!("#{}: {:#?}", i, conflict);
+            println!("#{}: Conflict in state {:?}", i, conflict.item_set);
+            println!("    Cannot decide whether to:");
+            for &action in &conflict.actions {
+                match action {
+                    Action::Reduce(rule_id) => {
+                        println!("    Reduce as:");
+                        println!("        {}", grammar[rule_id].pretty(&grammar))
+                    }
+                    Action::Shift(_) => {
+                        println!("    Continue as:");
+                        for item in is[conflict.item_set]
+                            .items()
+                            .iter()
+                            .filter(|item| item.action() == Some((conflict.symbol, action)))
+                        {
+                            println!("        {}", item.pretty(&grammar));
+                        }
+                    }
+                }
+            }
         }
         for (i, conflict) in conflicts.iter().enumerate() {
             let arc = glr::find_conflict_arc(&conflict, &grammar, &is);

@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Make backend annotations in grammar files optional.
 - Improve grammar rule ID printing.
 - `Conflict` fields made public.
+- Improve conflict reporting.
 
 ## 0.3.0 - 2018-08-10
 ### Added
