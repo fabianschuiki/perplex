@@ -5,21 +5,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## 0.4.0 - 2018-08-11
 ### Added
-- Detect reconverging grammars in GLR analysis.
 - Separately track state history in conflict arcs.
+- Detect reconverging grammars in GLR analysis.
 - Detect local ambiguities (reconvergent state traces).
+- Local ambiguity and resolution printing.
 - Grammar rule pretty printing.
 - The `ItemSet::kernel_items` function.
-- Local ambiguity and resolution printing.
 - Rule slices.
 
 ### Changed
 - Grammar parser is now self-hosted (generated based on a grammar file).
 - Make backend annotations in grammar files optional.
+- Improve conflict reporting.
 - Improve grammar rule ID printing.
 - `Conflict` fields made public.
-- Improve conflict reporting.
 - `LocalAmbiguity` fields made public.
 
 ## 0.3.0 - 2018-08-10
