@@ -332,7 +332,8 @@ mod tests {
             ast::Desc {
                 tokens: vec![
                     ast::TokenDecl {
-                        name: "hello".into(),
+                        name: ast::TokenName::Name("hello".into()),
+                        pattern: None,
                     },
                 ],
                 rules: vec![],
