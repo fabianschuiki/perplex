@@ -18,6 +18,9 @@ include!("parser_states.rs");
 
 /// The abstract syntax tree of a grammar description.
 pub mod ast {
+    use std::iter::{once, repeat};
+    use std::fmt;
+
     /// The root node of a grammar description.
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub struct Desc {
@@ -67,9 +70,77 @@ pub mod ast {
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub struct Variant {
         /// The sequence of symbols of the rule.
-        pub seq: Vec<String>,
+        pub seq: Vec<Symbol>,
         /// The reduction function name of the rule.
         pub reduction_function: Option<String>,
+    }
+
+    /// A symbol in a sequence.
+    #[allow(missing_docs)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub enum Symbol {
+        Token(String),
+        Group(Vec<Symbol>),
+        Optional(Box<Symbol>),
+        Repeat(RepSequence, RepMode),
+    }
+
+    impl fmt::Display for Symbol {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            match *self {
+                Symbol::Token(ref t) => write!(f, "{}", t),
+                Symbol::Group(ref g) => {
+                    write!(f, "(")?;
+                    fmt_symbol_seq(f, g)?;
+                    write!(f, ")")?;
+                    Ok(())
+                }
+                Symbol::Optional(ref s) => write!(f, "{}?", s),
+                Symbol::Repeat(ref repseq, mode) => {
+                    write!(f, "(")?;
+                    if repseq.sep.is_empty() {
+                        fmt_symbol_seq(f, &repseq.seq)?;
+                    } else {
+                        fmt_symbol_seq(f, &repseq.seq)?;
+                        write!(f, "; ")?;
+                        fmt_symbol_seq(f, &repseq.sep)?;
+                    }
+                    write!(f, ")")?;
+                    match mode {
+                        RepMode::ZeroOrMore => write!(f, "*")?,
+                        RepMode::OneOrMore => write!(f, "+")?,
+                    }
+                    Ok(())
+                }
+            }
+        }
+    }
+
+    fn fmt_symbol_seq<'a, I: IntoIterator<Item = &'a Symbol>>(
+        f: &mut fmt::Formatter,
+        symbols: I,
+    ) -> fmt::Result {
+        for (sep, tkn) in once("").chain(repeat(" ")).zip(symbols.into_iter()) {
+            write!(f, "{}{}", sep, tkn)?;
+        }
+        Ok(())
+    }
+
+    /// A sequence to be repeated with interspersed separators.
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub struct RepSequence {
+        /// The sequence of tokens to be repeated.
+        pub seq: Vec<Symbol>,
+        /// The separators in between the repeated sequence.
+        pub sep: Vec<Symbol>,
+    }
+
+    /// A mode of repetition.
+    #[allow(missing_docs)]
+    #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+    pub enum RepMode {
+        ZeroOrMore,
+        OneOrMore,
     }
 }
 
@@ -116,9 +187,8 @@ fn reduce_item_b(rule_decl: ast::RuleDecl) -> ast::Item {
 fn reduce_token_decl_a(
     _keyword: Option<Token>,
     name: ast::TokenName,
-    _lparen: Option<Token>,
+    _rarrow: Option<Token>,
     pattern: Option<Token>,
-    _rparen: Option<Token>,
     _semicolon: Option<Token>,
 ) -> ast::TokenDecl {
     ast::TokenDecl {
@@ -148,9 +218,8 @@ fn reduce_token_name_b(_end: Option<Token>) -> ast::TokenName {
 
 fn reduce_rule_decl_a(
     name: Option<Token>,
-    _lparen: Option<Token>,
+    _rarrow: Option<Token>,
     reduce_type: Option<Token>,
-    _rparen: Option<Token>,
     _lbrace: Option<Token>,
     list: Vec<ast::Variant>,
     rbrace: Option<Token>,
@@ -185,10 +254,9 @@ fn reduce_rule_list_b(variant: ast::Variant) -> Vec<ast::Variant> {
 }
 
 fn reduce_variant_a(
-    seq: Vec<String>,
-    _lparen: Option<Token>,
+    seq: Vec<ast::Symbol>,
+    _rarrow: Option<Token>,
     reduction_function: Option<Token>,
-    _rparen: Option<Token>,
     _semicolon: Option<Token>,
 ) -> ast::Variant {
     ast::Variant {
@@ -197,28 +265,73 @@ fn reduce_variant_a(
     }
 }
 
-fn reduce_variant_b(seq: Vec<String>, _semicolon: Option<Token>) -> ast::Variant {
+fn reduce_variant_b(seq: Vec<ast::Symbol>, _semicolon: Option<Token>) -> ast::Variant {
     ast::Variant {
         seq: seq,
         reduction_function: None,
     }
 }
 
-fn reduce_sequence_or_epsilon_a(seq: Vec<String>) -> Vec<String> {
+fn reduce_sequence_or_epsilon_a(seq: Vec<ast::Symbol>) -> Vec<ast::Symbol> {
     seq
 }
 
-fn reduce_sequence_or_epsilon_b(_epsilon: Option<Token>) -> Vec<String> {
+fn reduce_sequence_or_epsilon_b(_epsilon: Option<Token>) -> Vec<ast::Symbol> {
     vec![]
 }
 
-fn reduce_sequence_a(mut seq: Vec<String>, symbol: Option<Token>) -> Vec<String> {
-    seq.push(symbol.unwrap().unwrap_ident());
+fn reduce_sequence_a(mut seq: Vec<ast::Symbol>, symbol: ast::Symbol) -> Vec<ast::Symbol> {
+    seq.push(symbol);
     seq
 }
 
-fn reduce_sequence_b(symbol: Option<Token>) -> Vec<String> {
-    vec![symbol.unwrap().unwrap_ident()]
+fn reduce_sequence_b(symbol: ast::Symbol) -> Vec<ast::Symbol> {
+    vec![symbol]
+}
+
+fn reduce_symbol_a(primary: ast::Symbol) -> ast::Symbol {
+    primary
+}
+
+fn reduce_symbol_b(primary: ast::Symbol, _question: Option<Token>) -> ast::Symbol {
+    ast::Symbol::Optional(Box::new(primary))
+}
+
+fn reduce_symbol_c(repseq: ast::RepSequence, _star: Option<Token>) -> ast::Symbol {
+    ast::Symbol::Repeat(repseq, ast::RepMode::ZeroOrMore)
+}
+
+fn reduce_symbol_d(repseq: ast::RepSequence, _plus: Option<Token>) -> ast::Symbol {
+    ast::Symbol::Repeat(repseq, ast::RepMode::OneOrMore)
+}
+
+fn reduce_repetition_sequence_a(primary: ast::Symbol) -> ast::RepSequence {
+    ast::RepSequence {
+        seq: vec![primary],
+        sep: vec![],
+    }
+}
+
+fn reduce_repetition_sequence_b(
+    _lparen: Option<Token>,
+    seq: Vec<ast::Symbol>,
+    _semicolon: Option<Token>,
+    sep: Vec<ast::Symbol>,
+    _rparen: Option<Token>,
+) -> ast::RepSequence {
+    ast::RepSequence { seq: seq, sep: sep }
+}
+
+fn reduce_primary_symbol_a(ident: Option<Token>) -> ast::Symbol {
+    ast::Symbol::Token(ident.unwrap().unwrap_ident())
+}
+
+fn reduce_primary_symbol_b(
+    _lparen: Option<Token>,
+    seq: Vec<ast::Symbol>,
+    _rparen: Option<Token>,
+) -> ast::Symbol {
+    ast::Symbol::Group(seq)
 }
 
 struct StateSpace;
@@ -300,9 +413,12 @@ pub fn make_grammar(desc: &ast::Desc) -> (Grammar, Backend) {
         for v in &d.variants {
             let seq = v.seq
                 .iter()
-                .map(|v| match symbol_map.get(v) {
-                    Some(&s) => s,
-                    None => panic!("unknown token or rule `{}`", v),
+                .map(|sym| match *sym {
+                    ast::Symbol::Token(ref v) => match symbol_map.get(v) {
+                        Some(&s) => s,
+                        None => panic!("unknown token or rule `{}`", v),
+                    },
+                    ref a => panic!("unsupported symbol `{}`", a),
                 })
                 .collect();
             let rule_id = grammar.add_rule(Rule::new(id, seq));

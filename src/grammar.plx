@@ -74,8 +74,8 @@ symbol (`ast::Symbol`) {
 }
 
 repetition_sequence (`ast::RepSequence`) {
-	primary_symbol                (`recuce_repetition_sequence_a`);
-	'(' sequence ';' sequence ')' (`recuce_repetition_sequence_b`);
+	primary_symbol                (`reduce_repetition_sequence_a`);
+	'(' sequence ';' sequence ')' (`reduce_repetition_sequence_b`);
 }
 
 primary_symbol (`ast::Symbol`) {

@@ -25,6 +25,7 @@ pub enum Token {
     Plus,
     Eq,
     RArrow,
+    Question,
 }
 
 impl Token {
@@ -115,7 +116,7 @@ fn next_relevant<I: Iterator<Item = (usize, char)>>(
 /// Checks whether a character is a valid symbol in teh grammar description.
 fn is_symbol(c: char) -> bool {
     match c {
-        '(' | ')' | '.' | ':' | ',' | ';' | '|' | '*' | '+' | '=' => true,
+        '(' | ')' | '.' | ':' | ',' | ';' | '|' | '*' | '+' | '=' | '?' => true,
         _ => false,
     }
 }
@@ -151,6 +152,7 @@ impl<T: Iterator<Item = (usize, char)>> Iterator for Lexer<T> {
                     Token::Eq
                 }
             }
+            '?' => Token::Question,
             '\'' => {
                 let mut buffer = String::new();
                 buffer.push(sc);
