@@ -19,3 +19,7 @@ This is *perplex*, a grammar analyzer and parser generator for almost-context-fr
 - [ ] generalization to CFG, tiered parsing
 - [ ] location and span tracking
 - [ ] automated AST synthesis
+
+## License
+
+Perplex is licensed under the terms of the MIT license and the Apache License (Version 2.0), at your discretion. See [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE) for details.
