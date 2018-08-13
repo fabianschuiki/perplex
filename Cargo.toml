@@ -1,11 +1,13 @@
 [package]
 name = "perplex"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Fabian Schuiki <fabian@schuiki.ch>"]
 description = "A grammar analyzer and LR(k)/GLR parser generator."
 repository = "https://github.com/fabianschuiki/perplex"
 documentation = "https://docs.rs/perplex"
 license = "MIT/Apache-2.0"
+readme = "README.md"
+categories = ["parsing", "command-line-utilities"]
 
 [[bin]]
 name = "perplex"
