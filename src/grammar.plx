@@ -12,6 +12,11 @@ token ':'       (`Some(Token::Colon)`);
 token ','       (`Some(Token::Comma)`);
 token ';'       (`Some(Token::Semicolon)`);
 token '|'       (`Some(Token::Pipe)`);
+token '?'       (`Some(Token::Question)`);
+token '*'       (`Some(Token::Star)`);
+token '+'       (`Some(Token::Plus)`);
+token '='       (`Some(Token::Eq)`);
+token '=>'      (`Some(Token::RArrow)`);
 token end       (`None`);
 
 desc (`ast::Desc`) {
@@ -27,8 +32,8 @@ item (`ast::Item`) {
 }
 
 token_decl (`ast::TokenDecl`) {
-	'token' token_name '(' CODE ')' ';' (`reduce_token_decl_a`);
-	'token' token_name ';'              (`reduce_token_decl_b`);
+	'token' token_name '=>' CODE ';' (`reduce_token_decl_a`);
+	'token' token_name ';'           (`reduce_token_decl_b`);
 }
 
 token_name (`ast::TokenName`) {
@@ -37,8 +42,8 @@ token_name (`ast::TokenName`) {
 }
 
 rule_decl (`ast::RuleDecl`) {
-	IDENT '(' CODE ')' '{' rule_list '}' (`reduce_rule_decl_a`);
-	IDENT '{' rule_list '}'              (`reduce_rule_decl_b`);
+	IDENT '=>' CODE '{' rule_list '}' (`reduce_rule_decl_a`);
+	IDENT '{' rule_list '}'           (`reduce_rule_decl_b`);
 }
 
 rule_list (`Vec<ast::Variant>`) {
@@ -47,16 +52,33 @@ rule_list (`Vec<ast::Variant>`) {
 }
 
 variant (`ast::Variant`) {
-	sequence_or_epsilon '(' CODE ')' ';' (`reduce_variant_a`);
-	sequence_or_epsilon ';'              (`reduce_variant_b`);
+	sequence_or_epsilon '=>' CODE ';' (`reduce_variant_a`);
+	sequence_or_epsilon ';'           (`reduce_variant_b`);
 }
 
-sequence_or_epsilon (`Vec<String>`) {
+sequence_or_epsilon (`Vec<ast::Symbol>`) {
 	sequence  (`reduce_sequence_or_epsilon_a`);
 	'epsilon' (`reduce_sequence_or_epsilon_b`);
 }
 
-sequence (`Vec<String>`) {
-	sequence IDENT (`reduce_sequence_a`);
-	IDENT          (`reduce_sequence_b`);
+sequence (`Vec<ast::Symbol>`) {
+	sequence symbol (`reduce_sequence_a`);
+	symbol          (`reduce_sequence_b`);
+}
+
+symbol (`ast::Symbol`) {
+	primary_symbol          (`reduce_symbol_a`);
+	primary_symbol '?'      (`reduce_symbol_b`);
+	repetition_sequence '*' (`reduce_symbol_c`);
+	repetition_sequence '+' (`reduce_symbol_d`);
+}
+
+repetition_sequence (`ast::RepSequence`) {
+	primary_symbol                (`recuce_repetition_sequence_a`);
+	'(' sequence ';' sequence ')' (`recuce_repetition_sequence_b`);
+}
+
+primary_symbol (`ast::Symbol`) {
+	IDENT            (`reduce_primary_symbol_a`);
+	'(' sequence ')' (`reduce_primary_symbol_b`);
 }
