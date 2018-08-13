@@ -8,7 +8,7 @@ use std::str;
 use std::collections::HashMap;
 
 use lexer::{Keyword, Lexer, Token};
-use grammar::{Grammar, NonterminalId, Rule, Symbol, TerminalId, END};
+use grammar::{Grammar, NonterminalId, Rule, RuleId, Symbol, TerminalId, END};
 use backend::Backend;
 use perplex_runtime::Parser;
 
@@ -22,7 +22,7 @@ pub mod ast {
     use std::fmt;
 
     /// The root node of a grammar description.
-    #[derive(Debug, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct Desc {
         /// The token declarations.
         pub tokens: Vec<TokenDecl>,
@@ -32,14 +32,14 @@ pub mod ast {
 
     /// An item in the grammar description.
     #[allow(missing_docs)]
-    #[derive(Debug, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum Item {
         TokenDecl(TokenDecl),
         RuleDecl(RuleDecl),
     }
 
     /// A token declaration.
-    #[derive(Debug, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct TokenDecl {
         /// The name of the token.
         pub name: TokenName,
@@ -49,14 +49,14 @@ pub mod ast {
 
     /// A token name.
     #[allow(missing_docs)]
-    #[derive(Debug, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum TokenName {
         End,
         Name(String),
     }
 
     /// A rule declaration.
-    #[derive(Debug, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct RuleDecl {
         /// The name of the rule.
         pub name: String,
@@ -67,7 +67,7 @@ pub mod ast {
     }
 
     /// A rule variant.
-    #[derive(Debug, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct Variant {
         /// The sequence of symbols of the rule.
         pub seq: Vec<Symbol>,
@@ -77,7 +77,7 @@ pub mod ast {
 
     /// A symbol in a sequence.
     #[allow(missing_docs)]
-    #[derive(Debug, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub enum Symbol {
         Token(String),
         Group(Vec<Symbol>),
@@ -127,7 +127,7 @@ pub mod ast {
     }
 
     /// A sequence to be repeated with interspersed separators.
-    #[derive(Debug, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct RepSequence {
         /// The sequence of tokens to be repeated.
         pub seq: Vec<Symbol>,
@@ -411,17 +411,7 @@ pub fn make_grammar(desc: &ast::Desc) -> (Grammar, Backend) {
     for d in &desc.rules {
         let id = rule_map[&d.name];
         for v in &d.variants {
-            let seq = v.seq
-                .iter()
-                .map(|sym| match *sym {
-                    ast::Symbol::Token(ref v) => match symbol_map.get(v) {
-                        Some(&s) => s,
-                        None => panic!("unknown token or rule `{}`", v),
-                    },
-                    ref a => panic!("unsupported symbol `{}`", a),
-                })
-                .collect();
-            let rule_id = grammar.add_rule(Rule::new(id, seq));
+            let rule_id = insert_sequence(id, &v.seq, &symbol_map, &mut grammar);
             if let Some(rf) = v.reduction_function.clone() {
                 backend.add_reduction_function(rule_id, rf);
             }
@@ -429,6 +419,74 @@ pub fn make_grammar(desc: &ast::Desc) -> (Grammar, Backend) {
     }
 
     (grammar, backend)
+}
+
+fn insert_sequence<'a, I: IntoIterator<Item = &'a ast::Symbol>>(
+    id: NonterminalId,
+    seq: I,
+    symbol_map: &HashMap<String, Symbol>,
+    grammar: &mut Grammar,
+) -> RuleId {
+    let mut flattened = Vec::new();
+    flatten_sequence(id, seq, symbol_map, grammar, &mut flattened);
+    let rule_id = grammar.add_rule(Rule::new(id, flattened));
+    rule_id
+}
+
+fn flatten_sequence<'a, I: IntoIterator<Item = &'a ast::Symbol>>(
+    id: NonterminalId,
+    seq: I,
+    symbol_map: &HashMap<String, Symbol>,
+    grammar: &mut Grammar,
+    into: &mut Vec<Symbol>,
+) {
+    for symbol in seq {
+        match *symbol {
+            ast::Symbol::Token(ref v) => match symbol_map.get(v) {
+                Some(&s) => into.push(s),
+                None => panic!("unknown token or rule `{}`", v),
+            },
+            ast::Symbol::Group(ref g) => flatten_sequence(id, g, symbol_map, grammar, into),
+            ast::Symbol::Optional(ref s) => {
+                let subid = pick_subrule_name(id, grammar);
+                into.push(subid.into());
+                let mut symbols = Vec::new();
+                flatten_sequence(subid, Some(&**s), symbol_map, grammar, &mut symbols);
+                grammar.add_rule(Rule::new(subid, vec![]));
+                grammar.add_rule(Rule::new(subid, symbols));
+            }
+            ast::Symbol::Repeat(ref repseq, mode) => {
+                let subid = pick_subrule_name(id, grammar);
+                into.push(subid.into());
+                let subid = match mode {
+                    ast::RepMode::ZeroOrMore => {
+                        let subid2 = pick_subrule_name(subid, grammar);
+                        grammar.add_rule(Rule::new(subid, vec![]));
+                        grammar.add_rule(Rule::new(subid, vec![subid2.into()]));
+                        subid2
+                    }
+                    ast::RepMode::OneOrMore => subid,
+                };
+                let mut symbols_seq = Vec::new();
+                let mut symbols_sep = Vec::new();
+                flatten_sequence(subid, &repseq.seq, symbol_map, grammar, &mut symbols_seq);
+                flatten_sequence(subid, &repseq.sep, symbol_map, grammar, &mut symbols_sep);
+                grammar.add_rule(Rule::new(subid, symbols_seq.clone()));
+                let mut symbols = vec![Symbol::from(subid)];
+                symbols.extend(symbols_sep);
+                symbols.extend(symbols_seq);
+                grammar.add_rule(Rule::new(subid, symbols));
+            }
+        }
+    }
+}
+
+fn pick_subrule_name(id: NonterminalId, grammar: &mut Grammar) -> NonterminalId {
+    let mut name = String::from(grammar.nonterminal_name(id));
+    while grammar.get_nonterminal(&name).is_some() {
+        name.push('\'');
+    }
+    grammar.add_nonterminal(name)
 }
 
 #[cfg(test)]
