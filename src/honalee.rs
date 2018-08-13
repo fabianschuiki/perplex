@@ -148,7 +148,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
             let mut treated = BitSet::with_capacity(item_set.items.len());
             for i in 0..item_set.items.len() {
                 let item = item_set.items[i];
-                if treated.contains(i) || item.action.is_some() {
+                if treated.contains(i) {
                     continue;
                 }
                 let symbol = if item.rule == grammar::ACCEPT {
@@ -168,9 +168,10 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                 let mut new_set = ItemSet::new(ItemSetId::from_usize(next_id));
                 next_id += 1;
 
+                let mut any_updated = false;
                 for n in i..item_set.items.len() {
                     let item2 = &mut item_set.items[n];
-                    if treated.contains(n) || item2.action.is_some() {
+                    if treated.contains(n) {
                         continue;
                     }
                     let symbol2 = if item2.rule == grammar::ACCEPT {
@@ -195,8 +196,14 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                         marker: item2.marker + 1,
                         action: None,
                     });
-                    item2.action = Some((symbol.clone(), Action::Shift(new_set.id)));
+                    if item2.action.is_none() {
+                        item2.action = Some((symbol.clone(), Action::Shift(new_set.id)));
+                        any_updated = true;
+                    }
                     treated.insert(n);
+                }
+                if !any_updated {
+                    continue;
                 }
 
                 new_set.kernel = new_set.items.len();

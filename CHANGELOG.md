@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 - Now dual-licensed under MIT and Apache 2.0.
 
+### Fixed
+- Shift/shift conflicts produced by Honalee algorithm.
+
 ## 0.4.0 - 2018-08-11
 ### Added
 - Separately track state history in conflict arcs.
