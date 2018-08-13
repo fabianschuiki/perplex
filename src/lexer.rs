@@ -21,6 +21,10 @@ pub enum Token {
     Comma,
     Semicolon,
     Pipe,
+    Star,
+    Plus,
+    Eq,
+    RArrow,
 }
 
 impl Token {
@@ -111,7 +115,7 @@ fn next_relevant<I: Iterator<Item = (usize, char)>>(
 /// Checks whether a character is a valid symbol in teh grammar description.
 fn is_symbol(c: char) -> bool {
     match c {
-        '(' | ')' | '.' | ':' | ',' | ';' | '|' => true,
+        '(' | ')' | '.' | ':' | ',' | ';' | '|' | '*' | '+' | '=' => true,
         _ => false,
     }
 }
@@ -136,6 +140,17 @@ impl<T: Iterator<Item = (usize, char)>> Iterator for Lexer<T> {
             ',' => Token::Comma,
             ';' => Token::Semicolon,
             '|' => Token::Pipe,
+            '*' => Token::Star,
+            '+' => Token::Plus,
+            '=' => {
+                if let Some(&(ep, ec @ '>')) = self.input.peek() {
+                    self.input.next();
+                    sl = ep + ec.len_utf8();
+                    Token::RArrow
+                } else {
+                    Token::Eq
+                }
+            }
             '\'' => {
                 let mut buffer = String::new();
                 buffer.push(sc);
@@ -261,5 +276,10 @@ mod tests {
             lex("token 'abc \\\\ def'"),
             vec![Keyword(Kw::Token), Ident("'abc \\ def'".into())]
         );
+    }
+
+    #[test]
+    fn eq_arrow() {
+        assert_eq!(lex("= =>"), vec![Eq, RArrow]);
     }
 }
