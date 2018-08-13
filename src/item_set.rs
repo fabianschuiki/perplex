@@ -472,7 +472,7 @@ where
 ///
 /// The entries are sorted such that two item sets with the same kernel item
 /// cores but different order will produce the same KernelCores struct.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KernelCores(Vec<(RuleId, usize)>);
 
 /// An iterator over the actions of an item set.
