@@ -19,6 +19,7 @@ mod honalee;
 pub mod lexer;
 pub mod parser;
 pub mod glr;
+pub mod ext;
 
 /// A pretty printer.
 pub struct Pretty<C, T> {

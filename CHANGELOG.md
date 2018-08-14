@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 ### Added
 - Support for grouped, optional, and repeated symbols.
+- Extended grammar in the `ext` module.
 
 ## 0.4.1 - 2018-08-11
 ### Changed
