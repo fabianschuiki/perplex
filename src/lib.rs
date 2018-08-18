@@ -20,6 +20,7 @@ pub mod lexer;
 pub mod parser;
 pub mod glr;
 pub mod ext;
+pub mod ast_synth;
 
 /// A pretty printer.
 pub struct Pretty<C, T> {
