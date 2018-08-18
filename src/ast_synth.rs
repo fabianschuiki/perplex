@@ -260,6 +260,38 @@ mod tests {
     }
 
     #[test]
+    fn optional_symbols() {
+        let mut g = Grammar::new();
+        let nt_a = g.make_nonterminal("root").build(&mut g);
+        let t_a = g.make_terminal("a").build(&mut g);
+        let t_b = g.make_terminal("b").build(&mut g);
+        g.make_rule(nt_a, |s| {
+            s.terminal(t_a)
+                .maybe()
+                .name("type")
+                .terminal(t_b)
+                .name("name")
+        });
+        synth(&mut g);
+    }
+
+    #[test]
+    fn repeated_symbols() {
+        let mut g = Grammar::new();
+        let nt_a = g.make_nonterminal("root").build(&mut g);
+        let t_a = g.make_terminal("a").build(&mut g);
+        let t_b = g.make_terminal("b").build(&mut g);
+        g.make_rule(nt_a, |s| {
+            s.terminal(t_a)
+                .repeat(false)
+                .name("type")
+                .terminal(t_b)
+                .name("name")
+        });
+        synth(&mut g);
+    }
+
+    #[test]
     fn recursive_rule() {
         let mut g = Grammar::new();
         let nt_a = g.make_nonterminal("root").build(&mut g);
