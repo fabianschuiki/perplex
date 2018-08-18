@@ -13,6 +13,7 @@ use Pretty;
 /// An extended grammar.
 #[derive(Debug, Clone)]
 pub struct Grammar {
+    next_sequence_id: SequenceId,
     terms: Vec<Terminal>,
     term_names: HashMap<String, TerminalId>,
     nonterms: Vec<Nonterminal>,
@@ -23,6 +24,7 @@ impl Grammar {
     /// Create a new grammar.
     pub fn new() -> Grammar {
         Grammar {
+            next_sequence_id: SequenceId(0),
             terms: Vec::new(),
             term_names: HashMap::new(),
             nonterms: Vec::new(),
@@ -73,7 +75,8 @@ impl Grammar {
     }
 
     /// Add a rule to the grammar.
-    pub fn add_rule(&mut self, lhs: NonterminalId, rhs: Sequence) -> RuleId {
+    pub fn add_rule(&mut self, lhs: NonterminalId, mut rhs: Sequence) -> RuleId {
+        rhs.assign_id(&mut self.next_sequence_id);
         let rules = &mut self[lhs].rules;
         let id = RuleId(lhs, rules.len());
         rules.push(Rule { lhs: lhs, rhs: rhs });
@@ -89,23 +92,23 @@ impl Grammar {
     }
 
     /// Get an iterator over the terminals.
-    pub fn terminals(&self) -> Terminals {
-        Terminals(self.terms.iter().enumerate())
+    pub fn terminals(&self) -> Iter<Terminal> {
+        self.terms.iter()
     }
 
     /// Get a mutable iterator over the terminals.
-    pub fn terminals_mut(&mut self) -> TerminalsMut {
-        TerminalsMut(self.terms.iter_mut().enumerate())
+    pub fn terminals_mut(&mut self) -> IterMut<Terminal> {
+        self.terms.iter_mut()
     }
 
     /// Get an iterator over the nonterminals.
-    pub fn nonterminals(&self) -> Nonterminals {
-        Nonterminals(self.nonterms.iter().enumerate())
+    pub fn nonterminals(&self) -> Iter<Nonterminal> {
+        self.nonterms.iter()
     }
 
     /// Get a mutable iterator over the nonterminals.
-    pub fn nonterminals_mut(&mut self) -> NonterminalsMut {
-        NonterminalsMut(self.nonterms.iter_mut().enumerate())
+    pub fn nonterminals_mut(&mut self) -> IterMut<Nonterminal> {
+        self.nonterms.iter_mut()
     }
 }
 
@@ -145,46 +148,6 @@ impl Index<RuleId> for Grammar {
 impl IndexMut<RuleId> for Grammar {
     fn index_mut(&mut self, idx: RuleId) -> &mut Rule {
         &mut self[idx.0][idx]
-    }
-}
-
-/// An iterator over the terminals of a grammar.
-pub struct Terminals<'a>(Enumerate<Iter<'a, Terminal>>);
-
-impl<'a> Iterator for Terminals<'a> {
-    type Item = (TerminalId, &'a Terminal);
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|(i, t)| (TerminalId(i), t))
-    }
-}
-
-/// A mutable iterator over the terminals of a grammar.
-pub struct TerminalsMut<'a>(Enumerate<IterMut<'a, Terminal>>);
-
-impl<'a> Iterator for TerminalsMut<'a> {
-    type Item = (TerminalId, &'a mut Terminal);
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|(i, t)| (TerminalId(i), t))
-    }
-}
-
-/// An iterator over the nonterminals of a grammar.
-pub struct Nonterminals<'a>(Enumerate<Iter<'a, Nonterminal>>);
-
-impl<'a> Iterator for Nonterminals<'a> {
-    type Item = (NonterminalId, &'a Nonterminal);
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|(i, t)| (NonterminalId(i), t))
-    }
-}
-
-/// A mutable iterator over the nonterminals of a grammar.
-pub struct NonterminalsMut<'a>(Enumerate<IterMut<'a, Nonterminal>>);
-
-impl<'a> Iterator for NonterminalsMut<'a> {
-    type Item = (NonterminalId, &'a mut Nonterminal);
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|(i, t)| (NonterminalId(i), t))
     }
 }
 
@@ -325,13 +288,13 @@ impl Nonterminal {
     }
 
     /// Get an iterator over the rules.
-    pub fn rules(&self) -> Rules {
-        Rules(self.rules.iter().enumerate(), self.id)
+    pub fn rules(&self) -> Iter<Rule> {
+        self.rules.iter()
     }
 
     /// Get a mutable iterator over the rules.
-    pub fn rules_mut(&mut self) -> RulesMut {
-        RulesMut(self.rules.iter_mut().enumerate(), self.id)
+    pub fn rules_mut(&mut self) -> IterMut<Rule> {
+        self.rules.iter_mut()
     }
 }
 
@@ -345,26 +308,6 @@ impl Index<RuleId> for Nonterminal {
 impl IndexMut<RuleId> for Nonterminal {
     fn index_mut(&mut self, idx: RuleId) -> &mut Rule {
         &mut self.rules[idx.1]
-    }
-}
-
-/// An iterator over the terminals of a nonterminal.
-pub struct Rules<'a>(Enumerate<Iter<'a, Rule>>, NonterminalId);
-
-impl<'a> Iterator for Rules<'a> {
-    type Item = (RuleId, &'a Rule);
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|(i, t)| (RuleId(self.1, i), t))
-    }
-}
-
-/// A mutable iterator over the terminals of a nonterminal.
-pub struct RulesMut<'a>(Enumerate<IterMut<'a, Rule>>, NonterminalId);
-
-impl<'a> Iterator for RulesMut<'a> {
-    type Item = (RuleId, &'a mut Rule);
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|(i, t)| (RuleId(self.1, i), t))
     }
 }
 
@@ -464,6 +407,8 @@ impl fmt::Debug for RuleId {
 /// A sequence of symbols.
 #[derive(Debug, Clone)]
 pub struct Sequence {
+    /// The unique id of this sequence.
+    pub id: SequenceId,
     /// The symbols of this sequence.
     pub symbols: Vec<Symbol>,
 }
@@ -471,12 +416,23 @@ pub struct Sequence {
 impl Sequence {
     /// Create a new sequence.
     pub fn new(symbols: Vec<Symbol>) -> Sequence {
-        Sequence { symbols: symbols }
+        Sequence {
+            id: ORPHAN_SEQUENCE,
+            symbols: symbols,
+        }
     }
 
     /// Get a pretty printer for this sequence.
     pub fn pretty<'a>(&'a self, grammar: &'a Grammar) -> Pretty<&'a Grammar, &'a Self> {
         Pretty::new(grammar, self)
+    }
+
+    fn assign_id(&mut self, next_id: &mut SequenceId) {
+        self.id = *next_id;
+        next_id.0 += 1;
+        for sym in &mut self.symbols {
+            sym.assign_id(next_id);
+        }
     }
 }
 
@@ -494,6 +450,25 @@ impl<'a> fmt::Display for Pretty<&'a Grammar, &'a Sequence> {
         }
     }
 }
+
+/// A unique sequence identifier.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SequenceId(pub usize);
+
+impl fmt::Display for SequenceId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "s{}", self.0)
+    }
+}
+
+impl fmt::Debug for SequenceId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+/// The id of a nonterminal that has not been added to a grammar.
+pub const ORPHAN_SEQUENCE: SequenceId = SequenceId(::std::usize::MAX);
 
 /// A sequence builder.
 #[derive(Debug, Clone)]
@@ -648,6 +623,24 @@ impl Symbol {
     /// Get a pretty printer for this symbol.
     pub fn pretty<'a>(&'a self, grammar: &'a Grammar) -> Pretty<&'a Grammar, &'a Self> {
         Pretty::new(grammar, self)
+    }
+
+    fn assign_id(&mut self, next_id: &mut SequenceId) {
+        match self.kind {
+            SymbolKind::Terminal(..) => (),
+            SymbolKind::Nonterminal(..) => (),
+            SymbolKind::Group(ref mut seq) => seq.assign_id(next_id),
+            SymbolKind::Maybe(ref mut sym) => sym.assign_id(next_id),
+            SymbolKind::Choice(ref mut syms) => for sym in syms {
+                sym.assign_id(next_id)
+            },
+            SymbolKind::Repeat(ref mut repeated, ref mut separator, _) => {
+                repeated.assign_id(next_id);
+                if let Some(ref mut separator) = *separator {
+                    separator.assign_id(next_id);
+                }
+            }
+        }
     }
 }
 
