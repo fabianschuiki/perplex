@@ -5,7 +5,6 @@
 use std::fmt;
 use std::collections::HashMap;
 use std::ops::{Index, IndexMut};
-use std::iter::Enumerate;
 use std::slice::{Iter, IterMut};
 
 use Pretty;
