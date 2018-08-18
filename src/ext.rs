@@ -57,7 +57,7 @@ impl Grammar {
         match self.nonterm_names.get(&nonterm.name) {
             Some(&id) => id,
             None => {
-                let id = NonterminalId(self.terms.len());
+                let id = NonterminalId(self.nonterms.len());
                 nonterm.id = id;
                 self.nonterm_names.insert(nonterm.name.clone(), id);
                 self.nonterms.push(nonterm);
