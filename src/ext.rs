@@ -5,6 +5,8 @@
 use std::fmt;
 use std::collections::HashMap;
 use std::ops::{Index, IndexMut};
+use std::iter::Enumerate;
+use std::slice::{Iter, IterMut};
 
 use Pretty;
 
@@ -83,6 +85,26 @@ impl Grammar {
     {
         self.add_rule(lhs, f(SequenceBuilder::new()).build())
     }
+
+    /// Get an iterator over the terminals.
+    pub fn terminals(&self) -> Terminals {
+        Terminals(self.terms.iter().enumerate())
+    }
+
+    /// Get a mutable iterator over the terminals.
+    pub fn terminals_mut(&mut self) -> TerminalsMut {
+        TerminalsMut(self.terms.iter_mut().enumerate())
+    }
+
+    /// Get an iterator over the nonterminals.
+    pub fn nonterminals(&self) -> Nonterminals {
+        Nonterminals(self.nonterms.iter().enumerate())
+    }
+
+    /// Get a mutable iterator over the nonterminals.
+    pub fn nonterminals_mut(&mut self) -> NonterminalsMut {
+        NonterminalsMut(self.nonterms.iter_mut().enumerate())
+    }
 }
 
 impl Index<TerminalId> for Grammar {
@@ -121,6 +143,46 @@ impl Index<RuleId> for Grammar {
 impl IndexMut<RuleId> for Grammar {
     fn index_mut(&mut self, idx: RuleId) -> &mut Rule {
         &mut self[idx.0][idx]
+    }
+}
+
+/// An iterator over the terminals of a grammar.
+pub struct Terminals<'a>(Enumerate<Iter<'a, Terminal>>);
+
+impl<'a> Iterator for Terminals<'a> {
+    type Item = (TerminalId, &'a Terminal);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|(i, t)| (TerminalId(i), t))
+    }
+}
+
+/// A mutable iterator over the terminals of a grammar.
+pub struct TerminalsMut<'a>(Enumerate<IterMut<'a, Terminal>>);
+
+impl<'a> Iterator for TerminalsMut<'a> {
+    type Item = (TerminalId, &'a mut Terminal);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|(i, t)| (TerminalId(i), t))
+    }
+}
+
+/// An iterator over the nonterminals of a grammar.
+pub struct Nonterminals<'a>(Enumerate<Iter<'a, Nonterminal>>);
+
+impl<'a> Iterator for Nonterminals<'a> {
+    type Item = (NonterminalId, &'a Nonterminal);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|(i, t)| (NonterminalId(i), t))
+    }
+}
+
+/// A mutable iterator over the nonterminals of a grammar.
+pub struct NonterminalsMut<'a>(Enumerate<IterMut<'a, Nonterminal>>);
+
+impl<'a> Iterator for NonterminalsMut<'a> {
+    type Item = (NonterminalId, &'a mut Nonterminal);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|(i, t)| (NonterminalId(i), t))
     }
 }
 
@@ -463,6 +525,18 @@ impl SequenceBuilder {
         self.seq
             .symbols
             .push(Symbol::repeat(s, Some(separator), allow_empty));
+        self
+    }
+
+    /// Specify the last symbol's name.
+    pub fn name<S: Into<String>>(mut self, name: S) -> Self {
+        self.seq.symbols.last_mut().unwrap().name = Some(name.into());
+        self
+    }
+
+    /// Mark the last symbol as to be ignored.
+    pub fn ignore(mut self) -> Self {
+        self.seq.symbols.last_mut().unwrap().ignore = true;
         self
     }
 
