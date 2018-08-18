@@ -111,6 +111,21 @@ fn map_sequence(ctx: &mut Context, seq: &Sequence, name_stem: &str) -> Type {
             if fields.insert(name.clone(), ty).is_some() {
                 panic!("symbol name `{}` used multiple times", name);
             }
+        } else if let Type::Maybe(ty) = ty {
+            match *ty {
+                Type::Node(index) => match ctx.nodes[index].kind {
+                    NodeKind::Union(ref fs) => fields.extend(
+                        fs.iter()
+                            .cloned()
+                            .map(|(name, ty)| (name, Type::Maybe(Box::new(ty)))),
+                    ),
+                    _ => panic!("enum symbol not added to AST due to lacking name"),
+                },
+                t => panic!(
+                    "symbol with type {:?} not added to AST due to lacking name",
+                    t
+                ),
+            }
         }
     }
 
@@ -120,8 +135,8 @@ fn map_sequence(ctx: &mut Context, seq: &Sequence, name_stem: &str) -> Type {
         kind: NodeKind::Union(fields.into_iter().collect()),
     };
     ctx.nodes.push(node);
-    ctx.seq_types.insert(seq.id, ty);
-    Type::Sequence(seq.id)
+    ctx.seq_types.insert(seq.id, ty.clone());
+    ty
 }
 
 fn map_symbol(ctx: &mut Context, symbol: &Symbol, name_stem: &str) -> Type {
@@ -269,6 +284,21 @@ mod tests {
             s.terminal(t_a)
                 .maybe()
                 .name("type")
+                .terminal(t_b)
+                .name("name")
+        });
+        synth(&mut g);
+    }
+
+    #[test]
+    fn optional_flattened_symbols() {
+        let mut g = Grammar::new();
+        let nt_a = g.make_nonterminal("root").build(&mut g);
+        let t_a = g.make_terminal("a").build(&mut g);
+        let t_b = g.make_terminal("b").build(&mut g);
+        g.make_rule(nt_a, |s| {
+            s.group(|s| s.terminal(t_a).name("type").terminal(t_b).name("qualifier"))
+                .maybe()
                 .terminal(t_b)
                 .name("name")
         });
