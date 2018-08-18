@@ -162,8 +162,8 @@ pub struct Terminal {
     pub name: String,
     /// The human-readable name of the terminal.
     pub nice_name: Option<String>,
-    /// Whether the terminal contains data.
-    pub has_data: bool,
+    /// The type of the data this terminal carries, if any.
+    pub data_type: Option<String>,
     /// The match pattern of this terminal.
     pub match_pattern: Option<String>,
 }
@@ -175,7 +175,7 @@ impl Terminal {
             id: ORPHAN_TERMINAL,
             name: name.into(),
             nice_name: None,
-            has_data: false,
+            data_type: None,
             match_pattern: None,
         }
     }
@@ -196,20 +196,20 @@ pub struct TerminalBuilder {
 
 impl TerminalBuilder {
     /// Specify the human-readable name of the terminal.
-    pub fn nice_name(mut self, v: String) -> Self {
-        self.term.nice_name = Some(v);
+    pub fn nice_name<S: Into<String>>(mut self, v: S) -> Self {
+        self.term.nice_name = Some(v.into());
         self
     }
 
     /// Specify whether the terminal contains data.
-    pub fn has_data(mut self, v: bool) -> Self {
-        self.term.has_data = v;
+    pub fn data_type<S: Into<String>>(mut self, v: S) -> Self {
+        self.term.data_type = Some(v.into());
         self
     }
 
     /// Specify the match pattern of the terminal.
-    pub fn match_pattern(mut self, v: String) -> Self {
-        self.term.match_pattern = Some(v);
+    pub fn match_pattern<S: Into<String>>(mut self, v: S) -> Self {
+        self.term.match_pattern = Some(v.into());
         self
     }
 
