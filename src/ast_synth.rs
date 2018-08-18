@@ -77,6 +77,11 @@ fn synth(grammar: &Grammar) {
         map_nonterminal(&mut ctx, nt);
     }
     println!("{:#?}", ctx);
+
+    for n in &ctx.nodes {
+        println!("");
+        codegen_node(&ctx, n);
+    }
 }
 
 fn map_nonterminal(ctx: &mut Context, nt: &Nonterminal) -> Type {
@@ -178,6 +183,39 @@ pub enum NodeKind {
     Enum(Vec<Type>),
 }
 
+#[allow(dead_code)]
+fn codegen_node(ctx: &Context, node: &Node) {
+    match node.kind {
+        NodeKind::Union(ref fields) => {
+            println!("pub struct {} {{", node.name);
+            for &(ref name, ref ty) in fields {
+                println!("    pub {}: {},", name, codegen_type(ctx, ty));
+            }
+            println!("}}");
+        }
+        NodeKind::Enum(ref variants) => {
+            println!("pub enum {} {{", node.name);
+            for (i, v) in variants.iter().enumerate() {
+                println!("    V{}({}),", i, codegen_type(ctx, v));
+            }
+            println!("}}");
+        }
+    }
+}
+
+fn codegen_type(ctx: &Context, ty: &Type) -> String {
+    match *ty {
+        Type::Extern(ref e) => e.clone(),
+        Type::Terminal(_id) => "()".into(),
+        Type::Nonterminal(id) => codegen_type(ctx, &ctx.nonterm_types[&id]),
+        Type::Sequence(id) => codegen_type(ctx, &ctx.seq_types[&id]),
+        Type::Maybe(ref ty) => format!("Option<{}>", codegen_type(ctx, &*ty)),
+        Type::Choice(ref _choices) => panic!("type codegen for choices not yet supported"),
+        Type::Array(ref ty) => format!("Vec<{}>", codegen_type(ctx, &*ty)),
+        Type::Node(index) => ctx.nodes[index].name.clone(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -191,6 +229,45 @@ mod tests {
         let _r = g.make_rule(nt_a, |s| {
             s.terminal(t_a).name("name").terminal(t_b).name("type")
         });
+        synth(&mut g);
+    }
+
+    #[test]
+    fn nested_rule() {
+        let mut g = Grammar::new();
+        let nt_a = g.make_nonterminal("root").build(&mut g);
+        let nt_b = g.make_nonterminal("item").build(&mut g);
+        let t_a = g.make_terminal("a").build(&mut g);
+        let t_b = g.make_terminal("b").build(&mut g);
+        g.make_rule(nt_a, |s| {
+            s.nonterminal(nt_b).name("item").terminal(t_a).name("name")
+        });
+        g.make_rule(nt_b, |s| {
+            s.terminal(t_a).name("name").terminal(t_b).name("type")
+        });
+        synth(&mut g);
+    }
+
+    #[test]
+    fn multiple_rules() {
+        let mut g = Grammar::new();
+        let nt_a = g.make_nonterminal("root").build(&mut g);
+        let t_a = g.make_terminal("a").build(&mut g);
+        let t_b = g.make_terminal("b").build(&mut g);
+        g.make_rule(nt_a, |s| s.terminal(t_a).name("item"));
+        g.make_rule(nt_a, |s| s.terminal(t_b).name("type"));
+        synth(&mut g);
+    }
+
+    #[test]
+    fn recursive_rule() {
+        let mut g = Grammar::new();
+        let nt_a = g.make_nonterminal("root").build(&mut g);
+        let t_a = g.make_terminal("a").build(&mut g);
+        g.make_rule(nt_a, |s| {
+            s.nonterminal(nt_a).name("base").terminal(t_a).name("next")
+        });
+        g.make_rule(nt_a, |s| s.terminal(t_a).name("first"));
         synth(&mut g);
     }
 }
