@@ -31,11 +31,12 @@ impl Grammar {
     }
 
     /// Add a terminal to the grammar.
-    pub fn add_terminal(&mut self, term: Terminal) -> TerminalId {
+    pub fn add_terminal(&mut self, mut term: Terminal) -> TerminalId {
         match self.term_names.get(&term.name) {
             Some(&id) => id,
             None => {
                 let id = TerminalId(self.terms.len());
+                term.id = id;
                 self.term_names.insert(term.name.clone(), id);
                 self.terms.push(term);
                 id
@@ -51,11 +52,12 @@ impl Grammar {
     }
 
     /// Add a nonterminal to the grammar.
-    pub fn add_nonterminal(&mut self, nonterm: Nonterminal) -> NonterminalId {
+    pub fn add_nonterminal(&mut self, mut nonterm: Nonterminal) -> NonterminalId {
         match self.nonterm_names.get(&nonterm.name) {
             Some(&id) => id,
             None => {
                 let id = NonterminalId(self.terms.len());
+                nonterm.id = id;
                 self.nonterm_names.insert(nonterm.name.clone(), id);
                 self.nonterms.push(nonterm);
                 id
@@ -192,6 +194,8 @@ impl<'a> Iterator for NonterminalsMut<'a> {
 /// minimal non-divisible fragment of information that is being dealt around.
 #[derive(Debug, Clone)]
 pub struct Terminal {
+    /// The id of this terminal.
+    pub id: TerminalId,
     /// The name of the terminal.
     pub name: String,
     /// The human-readable name of the terminal.
@@ -206,6 +210,7 @@ impl Terminal {
     /// Create a new terminal.
     pub fn new<S: Into<String>>(name: S) -> Terminal {
         Terminal {
+            id: ORPHAN_TERMINAL,
             name: name.into(),
             nice_name: None,
             has_data: false,
@@ -281,12 +286,17 @@ impl<'a> fmt::Display for Pretty<&'a Grammar, TerminalId> {
     }
 }
 
+/// The id of a terminal that has not been added to a grammar.
+pub const ORPHAN_TERMINAL: TerminalId = TerminalId(::std::usize::MAX);
+
 /// A nonterminal within a grammar.
 ///
 /// Nonterminals describe the production rules for parsing a grammar. They
 /// consist of multiple sequences of symbols which can be reduced to one datum.
 #[derive(Debug, Clone)]
 pub struct Nonterminal {
+    /// The id of this nonterminal.
+    pub id: NonterminalId,
     /// The name of the nonterminal.
     pub name: String,
     /// The human-readable name of the nonterminal.
@@ -299,6 +309,7 @@ impl Nonterminal {
     /// Create a new nonterminal.
     pub fn new<S: Into<String>>(name: S) -> Nonterminal {
         Nonterminal {
+            id: ORPHAN_NONTERMINAL,
             name: name.into(),
             nice_name: None,
             rules: Vec::new(),
@@ -312,6 +323,16 @@ impl Nonterminal {
     pub fn nice_name(&self) -> &str {
         self.nice_name.as_ref().unwrap_or(&self.name)
     }
+
+    /// Get an iterator over the rules.
+    pub fn rules(&self) -> Rules {
+        Rules(self.rules.iter().enumerate(), self.id)
+    }
+
+    /// Get a mutable iterator over the rules.
+    pub fn rules_mut(&mut self) -> RulesMut {
+        RulesMut(self.rules.iter_mut().enumerate(), self.id)
+    }
 }
 
 impl Index<RuleId> for Nonterminal {
@@ -324,6 +345,26 @@ impl Index<RuleId> for Nonterminal {
 impl IndexMut<RuleId> for Nonterminal {
     fn index_mut(&mut self, idx: RuleId) -> &mut Rule {
         &mut self.rules[idx.1]
+    }
+}
+
+/// An iterator over the terminals of a nonterminal.
+pub struct Rules<'a>(Enumerate<Iter<'a, Rule>>, NonterminalId);
+
+impl<'a> Iterator for Rules<'a> {
+    type Item = (RuleId, &'a Rule);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|(i, t)| (RuleId(self.1, i), t))
+    }
+}
+
+/// A mutable iterator over the terminals of a nonterminal.
+pub struct RulesMut<'a>(Enumerate<IterMut<'a, Rule>>, NonterminalId);
+
+impl<'a> Iterator for RulesMut<'a> {
+    type Item = (RuleId, &'a mut Rule);
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|(i, t)| (RuleId(self.1, i), t))
     }
 }
 
@@ -373,6 +414,9 @@ impl<'a> fmt::Display for Pretty<&'a Grammar, NonterminalId> {
         write!(f, "{}", self.ctx[self.item].name)
     }
 }
+
+/// The id of a nonterminal that has not been added to a grammar.
+pub const ORPHAN_NONTERMINAL: NonterminalId = NonterminalId(::std::usize::MAX);
 
 /// A rule within a grammar.
 #[derive(Debug, Clone)]
