@@ -67,10 +67,15 @@ sequence => `Vec<ast::Symbol>` {
 }
 
 symbol => `ast::Symbol` {
-	primary_symbol          => `reduce_symbol_a`;
-	primary_symbol '?'      => `reduce_symbol_b`;
-	repetition_sequence '*' => `reduce_symbol_c`;
-	repetition_sequence '+' => `reduce_symbol_d`;
+	core_symbol           => `reduce_symbol_a`;
+	core_symbol ':' IDENT => `reduce_symbol_b`;
+}
+
+core_symbol => `ast::Symbol` {
+	primary_symbol          => `reduce_core_symbol_a`;
+	primary_symbol '?'      => `reduce_core_symbol_b`;
+	repetition_sequence '*' => `reduce_core_symbol_c`;
+	repetition_sequence '+' => `reduce_core_symbol_d`;
 }
 
 repetition_sequence => `ast::RepSequence` {

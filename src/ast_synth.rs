@@ -119,9 +119,9 @@ fn map_sequence(ctx: &mut Context, seq: &Sequence, name_stem: &str) -> Type {
                             .cloned()
                             .map(|(name, ty)| (name, Type::Maybe(Box::new(ty)))),
                     ),
-                    _ => panic!("enum symbol not added to AST due to lacking name"),
+                    _ => warn!("enum symbol not added to AST due to lacking name"),
                 },
-                t => panic!(
+                t => warn!(
                     "symbol with type {:?} not added to AST due to lacking name",
                     t
                 ),

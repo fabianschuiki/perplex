@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 ### Added
 - Support for grouped, optional, and repeated symbols.
+- Names for grammar symbols (e.g. `IDENT:foo`).
 - Extended grammar in the `ext` module.
 - Switch to dump the parsed grammar (`--dump-grammar`).
 - Switch to dump the parsed extended grammar (`--dump-ext-grammar`).

@@ -79,25 +79,54 @@ pub mod ast {
     /// A symbol in a sequence.
     #[allow(missing_docs)]
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-    pub enum Symbol {
+    pub struct Symbol {
+        /// The symbol kind.
+        pub kind: SymbolKind,
+        /// The name of the symbol.
+        pub name: Option<String>,
+    }
+
+    impl fmt::Display for Symbol {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.kind)?;
+            if let Some(ref name) = self.name {
+                write!(f, ":{}", name)?;
+            }
+            Ok(())
+        }
+    }
+
+    impl From<SymbolKind> for Symbol {
+        fn from(kind: SymbolKind) -> Symbol {
+            Symbol {
+                kind: kind,
+                name: None,
+            }
+        }
+    }
+
+    /// A symbol kind in a sequence.
+    #[allow(missing_docs)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+    pub enum SymbolKind {
         Token(String),
         Group(Vec<Symbol>),
         Optional(Box<Symbol>),
         Repeat(RepSequence, RepMode),
     }
 
-    impl fmt::Display for Symbol {
+    impl fmt::Display for SymbolKind {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             match *self {
-                Symbol::Token(ref t) => write!(f, "{}", t),
-                Symbol::Group(ref g) => {
+                SymbolKind::Token(ref t) => write!(f, "{}", t),
+                SymbolKind::Group(ref g) => {
                     write!(f, "(")?;
                     fmt_symbol_seq(f, g)?;
                     write!(f, ")")?;
                     Ok(())
                 }
-                Symbol::Optional(ref s) => write!(f, "{}?", s),
-                Symbol::Repeat(ref repseq, mode) => {
+                SymbolKind::Optional(ref s) => write!(f, "{}?", s),
+                SymbolKind::Repeat(ref repseq, mode) => {
                     write!(f, "(")?;
                     if repseq.sep.is_empty() {
                         fmt_symbol_seq(f, &repseq.seq)?;
@@ -290,20 +319,33 @@ fn reduce_sequence_b(symbol: ast::Symbol) -> Vec<ast::Symbol> {
     vec![symbol]
 }
 
-fn reduce_symbol_a(primary: ast::Symbol) -> ast::Symbol {
+fn reduce_symbol_a(core: ast::Symbol) -> ast::Symbol {
+    core
+}
+
+fn reduce_symbol_b(
+    mut core: ast::Symbol,
+    _colon: Option<Token>,
+    name: Option<Token>,
+) -> ast::Symbol {
+    core.name = Some(name.unwrap().unwrap_ident());
+    core
+}
+
+fn reduce_core_symbol_a(primary: ast::Symbol) -> ast::Symbol {
     primary
 }
 
-fn reduce_symbol_b(primary: ast::Symbol, _question: Option<Token>) -> ast::Symbol {
-    ast::Symbol::Optional(Box::new(primary))
+fn reduce_core_symbol_b(primary: ast::Symbol, _question: Option<Token>) -> ast::Symbol {
+    ast::SymbolKind::Optional(Box::new(primary)).into()
 }
 
-fn reduce_symbol_c(repseq: ast::RepSequence, _star: Option<Token>) -> ast::Symbol {
-    ast::Symbol::Repeat(repseq, ast::RepMode::ZeroOrMore)
+fn reduce_core_symbol_c(repseq: ast::RepSequence, _star: Option<Token>) -> ast::Symbol {
+    ast::SymbolKind::Repeat(repseq, ast::RepMode::ZeroOrMore).into()
 }
 
-fn reduce_symbol_d(repseq: ast::RepSequence, _plus: Option<Token>) -> ast::Symbol {
-    ast::Symbol::Repeat(repseq, ast::RepMode::OneOrMore)
+fn reduce_core_symbol_d(repseq: ast::RepSequence, _plus: Option<Token>) -> ast::Symbol {
+    ast::SymbolKind::Repeat(repseq, ast::RepMode::OneOrMore).into()
 }
 
 fn reduce_repetition_sequence_a(primary: ast::Symbol) -> ast::RepSequence {
@@ -324,7 +366,7 @@ fn reduce_repetition_sequence_b(
 }
 
 fn reduce_primary_symbol_a(ident: Option<Token>) -> ast::Symbol {
-    ast::Symbol::Token(ident.unwrap().unwrap_ident())
+    ast::SymbolKind::Token(ident.unwrap().unwrap_ident()).into()
 }
 
 fn reduce_primary_symbol_b(
@@ -332,7 +374,7 @@ fn reduce_primary_symbol_b(
     seq: Vec<ast::Symbol>,
     _rparen: Option<Token>,
 ) -> ast::Symbol {
-    ast::Symbol::Group(seq)
+    ast::SymbolKind::Group(seq).into()
 }
 
 struct StateSpace;
@@ -442,13 +484,13 @@ fn flatten_sequence<'a, I: IntoIterator<Item = &'a ast::Symbol>>(
     into: &mut Vec<Symbol>,
 ) {
     for symbol in seq {
-        match *symbol {
-            ast::Symbol::Token(ref v) => match symbol_map.get(v) {
+        match symbol.kind {
+            ast::SymbolKind::Token(ref v) => match symbol_map.get(v) {
                 Some(&s) => into.push(s),
                 None => panic!("unknown token or rule `{}`", v),
             },
-            ast::Symbol::Group(ref g) => flatten_sequence(id, g, symbol_map, grammar, into),
-            ast::Symbol::Optional(ref s) => {
+            ast::SymbolKind::Group(ref g) => flatten_sequence(id, g, symbol_map, grammar, into),
+            ast::SymbolKind::Optional(ref s) => {
                 let subid = pick_subrule_name(id, grammar);
                 into.push(subid.into());
                 let mut symbols = Vec::new();
@@ -456,7 +498,7 @@ fn flatten_sequence<'a, I: IntoIterator<Item = &'a ast::Symbol>>(
                 grammar.add_rule(Rule::new(subid, vec![]));
                 grammar.add_rule(Rule::new(subid, symbols));
             }
-            ast::Symbol::Repeat(ref repseq, mode) => {
+            ast::SymbolKind::Repeat(ref repseq, mode) => {
                 let subid = pick_subrule_name(id, grammar);
                 into.push(subid.into());
                 let subid = match mode {
@@ -570,15 +612,15 @@ fn insert_symbol(
     sym: &ast::Symbol,
     symbol_map: &HashMap<String, ExtSymbol>,
 ) -> ext::SequenceBuilder {
-    match *sym {
-        ast::Symbol::Token(ref v) => match symbol_map.get(v) {
+    sb = match sym.kind {
+        ast::SymbolKind::Token(ref v) => match symbol_map.get(v) {
             Some(&ExtSymbol::Terminal(id)) => sb.terminal(id),
             Some(&ExtSymbol::Nonterminal(id)) => sb.nonterminal(id),
             None => panic!("unknown token or rule `{}`", v),
         },
-        ast::Symbol::Group(ref g) => sb.group(|sb| insert_ext_sequence(sb, g, symbol_map)),
-        ast::Symbol::Optional(ref s) => insert_symbol(sb, &*s, symbol_map).maybe(),
-        ast::Symbol::Repeat(ref repseq, mode) => {
+        ast::SymbolKind::Group(ref g) => sb.group(|sb| insert_ext_sequence(sb, g, symbol_map)),
+        ast::SymbolKind::Optional(ref s) => insert_symbol(sb, &*s, symbol_map).maybe(),
+        ast::SymbolKind::Repeat(ref repseq, mode) => {
             let allow_empty = match mode {
                 ast::RepMode::ZeroOrMore => true,
                 ast::RepMode::OneOrMore => false,
@@ -592,7 +634,11 @@ fn insert_symbol(
                 sb.repeat_separated(ext::Symbol::group(sep), allow_empty)
             }
         }
+    };
+    if let Some(ref name) = sym.name {
+        sb = sb.name(name.clone());
     }
+    sb
 }
 
 #[cfg(test)]
