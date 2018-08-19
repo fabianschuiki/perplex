@@ -56,6 +56,16 @@ fn main() {
                 .help("Dump the generated item sets and exit"),
         )
         .arg(
+            Arg::with_name("dump_grammar")
+                .long("dump-grammar")
+                .help("Dump the grammar"),
+        )
+        .arg(
+            Arg::with_name("dump_ext_grammar")
+                .long("dump-ext-grammar")
+                .help("Dump the extended grammar"),
+        )
+        .arg(
             Arg::with_name("conflict_arcs")
                 .long("conflict-arcs")
                 .help("Compute conflict arcs in the state space"),
@@ -102,6 +112,16 @@ fn main() {
 
     // Create a grammar and backend description from the parsed AST.
     let (grammar, backend) = parser::make_grammar(&desc);
+    if matches.is_present("dump_grammar") {
+        println!("{:#?}", grammar);
+        return;
+    }
+
+    let ext_grammar = parser::make_ext_grammar(&desc);
+    if matches.is_present("dump_ext_grammar") {
+        println!("{:#?}", ext_grammar);
+        return;
+    }
 
     // Determine the item sets.
     let is = ItemSets::compute(&grammar);

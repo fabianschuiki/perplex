@@ -7,6 +7,7 @@
 use std::str;
 use std::collections::HashMap;
 
+use ext;
 use lexer::{Keyword, Lexer, Token};
 use grammar::{Grammar, NonterminalId, Rule, RuleId, Symbol, TerminalId, END};
 use backend::Backend;
@@ -487,6 +488,111 @@ fn pick_subrule_name(id: NonterminalId, grammar: &mut Grammar) -> NonterminalId 
         name.push('\'');
     }
     grammar.add_nonterminal(name)
+}
+
+/// Convert the grammar description into a corresponding extended grammar.
+pub fn make_ext_grammar(desc: &ast::Desc) -> ext::Grammar {
+    let mut grammar = ext::Grammar::new();
+
+    // Declare the terminals and nonterminals.
+    let mut token_map: HashMap<String, ext::TerminalId> = HashMap::new();
+    let mut rule_map: HashMap<String, ext::NonterminalId> = HashMap::new();
+    for d in &desc.tokens {
+        let id = match d.name {
+            ast::TokenName::Name(ref name) => {
+                let mut b = grammar.make_terminal(name.clone());
+                if let Some(pat) = d.pattern.clone() {
+                    b = b.match_pattern(pat);
+                }
+                let id = b.build(&mut grammar);
+                token_map.insert(name.clone(), id);
+                id
+            }
+            ast::TokenName::End => continue,
+        };
+    }
+    for d in &desc.rules {
+        let id = grammar.make_nonterminal(d.name.clone()).build(&mut grammar);
+        rule_map.insert(d.name.clone(), id);
+        // if let Some(reduce_type) = d.reduce_type.clone() {
+        //     backend.add_nonterminal(id, reduce_type);
+        // }
+    }
+
+    // Create a unified symbol lookup table.
+    let mut symbol_map: HashMap<String, ExtSymbol> = HashMap::new();
+    for (n, &i) in &token_map {
+        symbol_map.insert(n.clone(), ExtSymbol::Terminal(i));
+    }
+    for (n, &i) in &rule_map {
+        if symbol_map
+            .insert(n.clone(), ExtSymbol::Nonterminal(i))
+            .is_some()
+        {
+            panic!("rule name `{}` conflicts with token name `{}`", n, n);
+        }
+    }
+
+    // Add the rules to the grammar.
+    for d in &desc.rules {
+        let id = rule_map[&d.name];
+        for v in &d.variants {
+            grammar.make_rule(id, |s| insert_ext_sequence(s, &v.seq, &symbol_map));
+            // let _rule_id = insert_ext_sequence(id, &v.seq, &symbol_map, &mut grammar);
+            // if let Some(rf) = v.reduction_function.clone() {
+            //     backend.add_reduction_function(rule_id, rf);
+            // }
+        }
+    }
+
+    debug!("{:#?}", grammar);
+    grammar
+}
+
+enum ExtSymbol {
+    Terminal(ext::TerminalId),
+    Nonterminal(ext::NonterminalId),
+}
+
+fn insert_ext_sequence(
+    mut sb: ext::SequenceBuilder,
+    seq: &[ast::Symbol],
+    symbol_map: &HashMap<String, ExtSymbol>,
+) -> ext::SequenceBuilder {
+    for symbol in seq {
+        sb = insert_symbol(sb, symbol, symbol_map);
+    }
+    sb
+}
+
+fn insert_symbol(
+    mut sb: ext::SequenceBuilder,
+    sym: &ast::Symbol,
+    symbol_map: &HashMap<String, ExtSymbol>,
+) -> ext::SequenceBuilder {
+    match *sym {
+        ast::Symbol::Token(ref v) => match symbol_map.get(v) {
+            Some(&ExtSymbol::Terminal(id)) => sb.terminal(id),
+            Some(&ExtSymbol::Nonterminal(id)) => sb.nonterminal(id),
+            None => panic!("unknown token or rule `{}`", v),
+        },
+        ast::Symbol::Group(ref g) => sb.group(|sb| insert_ext_sequence(sb, g, symbol_map)),
+        ast::Symbol::Optional(ref s) => insert_symbol(sb, &*s, symbol_map).maybe(),
+        ast::Symbol::Repeat(ref repseq, mode) => {
+            let allow_empty = match mode {
+                ast::RepMode::ZeroOrMore => true,
+                ast::RepMode::OneOrMore => false,
+            };
+            sb = sb.group(|sb| insert_ext_sequence(sb, &repseq.seq, symbol_map));
+            if repseq.sep.is_empty() {
+                sb.repeat(allow_empty)
+            } else {
+                let sep = insert_ext_sequence(ext::SequenceBuilder::new(), &repseq.sep, symbol_map)
+                    .build();
+                sb.repeat_separated(ext::Symbol::group(sep), allow_empty)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
