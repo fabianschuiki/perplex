@@ -66,6 +66,11 @@ fn main() {
                 .help("Dump the extended grammar"),
         )
         .arg(
+            Arg::with_name("synth_ast")
+                .long("synth-ast")
+                .help("Synthesize the AST"),
+        )
+        .arg(
             Arg::with_name("conflict_arcs")
                 .long("conflict-arcs")
                 .help("Compute conflict arcs in the state space"),
@@ -120,6 +125,10 @@ fn main() {
     let ext_grammar = parser::make_ext_grammar(&desc);
     if matches.is_present("dump_ext_grammar") {
         println!("{:#?}", ext_grammar);
+        return;
+    }
+    if matches.is_present("synth_ast") {
+        perplex::ast_synth::AstSynth::with_grammar(&ext_grammar);
         return;
     }
 

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Extended grammar in the `ext` module.
 - Switch to dump the parsed grammar (`--dump-grammar`).
 - Switch to dump the parsed extended grammar (`--dump-ext-grammar`).
+- Switch to synthesize the AST (`--synth-ast`).
 
 ## 0.4.1 - 2018-08-13
 ### Changed
