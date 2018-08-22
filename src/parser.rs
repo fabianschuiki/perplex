@@ -46,6 +46,8 @@ pub mod ast {
         pub name: TokenName,
         /// The match pattern for this token.
         pub pattern: Option<String>,
+        /// The type of data this token carries.
+        pub data_type: Option<String>,
     }
 
     /// A token name.
@@ -219,15 +221,32 @@ fn reduce_token_decl_a(
     name: ast::TokenName,
     _rarrow: Option<Token>,
     pattern: Option<Token>,
+    _comma: Option<Token>,
+    data_type: Option<Token>,
     _semicolon: Option<Token>,
 ) -> ast::TokenDecl {
     ast::TokenDecl {
         name: name,
         pattern: Some(pattern.unwrap().unwrap_code()),
+        data_type: Some(data_type.unwrap().unwrap_code()),
     }
 }
 
 fn reduce_token_decl_b(
+    _keyword: Option<Token>,
+    name: ast::TokenName,
+    _rarrow: Option<Token>,
+    pattern: Option<Token>,
+    _semicolon: Option<Token>,
+) -> ast::TokenDecl {
+    ast::TokenDecl {
+        name: name,
+        pattern: Some(pattern.unwrap().unwrap_code()),
+        data_type: None,
+    }
+}
+
+fn reduce_token_decl_c(
     _keyword: Option<Token>,
     name: ast::TokenName,
     _semicolon: Option<Token>,
@@ -235,6 +254,7 @@ fn reduce_token_decl_b(
     ast::TokenDecl {
         name: name,
         pattern: None,
+        data_type: None,
     }
 }
 
@@ -545,6 +565,9 @@ pub fn make_ext_grammar(desc: &ast::Desc) -> ext::Grammar {
                 let mut b = grammar.make_terminal(name.clone());
                 if let Some(pat) = d.pattern.clone() {
                     b = b.match_pattern(pat);
+                }
+                if let Some(dt) = d.data_type.clone() {
+                    b = b.data_type(dt);
                 }
                 let id = b.build(&mut grammar);
                 token_map.insert(name.clone(), id);

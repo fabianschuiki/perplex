@@ -32,8 +32,9 @@ item => `ast::Item` {
 }
 
 token_decl => `ast::TokenDecl` {
-	'token' token_name '=>' CODE ';' => `reduce_token_decl_a`;
-	'token' token_name ';'           => `reduce_token_decl_b`;
+	'token' token_name '=>' CODE ',' CODE ';' => `reduce_token_decl_a`;
+	'token' token_name '=>' CODE ';'          => `reduce_token_decl_b`;
+	'token' token_name ';'                    => `reduce_token_decl_c`;
 }
 
 token_name => `ast::TokenName` {

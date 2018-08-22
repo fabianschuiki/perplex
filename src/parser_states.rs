@@ -604,7 +604,7 @@ fn state_16<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg0 = args.next().unwrap().unwrap_terminal();
             let arg1 = args.next().unwrap().unwrap_nonterminal().unwrap_nt3();
             let arg2 = args.next().unwrap().unwrap_terminal();
-            let reduced: ast::TokenDecl = reduce_token_decl_b(
+            let reduced: ast::TokenDecl = reduce_token_decl_c(
                 arg0,
                 arg1,
                 arg2,
@@ -616,7 +616,7 @@ fn state_16<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg0 = args.next().unwrap().unwrap_terminal();
             let arg1 = args.next().unwrap().unwrap_nonterminal().unwrap_nt3();
             let arg2 = args.next().unwrap().unwrap_terminal();
-            let reduced: ast::TokenDecl = reduce_token_decl_b(
+            let reduced: ast::TokenDecl = reduce_token_decl_c(
                 arg0,
                 arg1,
                 arg2,
@@ -628,7 +628,7 @@ fn state_16<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg0 = args.next().unwrap().unwrap_terminal();
             let arg1 = args.next().unwrap().unwrap_nonterminal().unwrap_nt3();
             let arg2 = args.next().unwrap().unwrap_terminal();
-            let reduced: ast::TokenDecl = reduce_token_decl_b(
+            let reduced: ast::TokenDecl = reduce_token_decl_c(
                 arg0,
                 arg1,
                 arg2,
@@ -640,7 +640,7 @@ fn state_16<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg0 = args.next().unwrap().unwrap_terminal();
             let arg1 = args.next().unwrap().unwrap_nonterminal().unwrap_nt3();
             let arg2 = args.next().unwrap().unwrap_terminal();
-            let reduced: ast::TokenDecl = reduce_token_decl_b(
+            let reduced: ast::TokenDecl = reduce_token_decl_c(
                 arg0,
                 arg1,
                 arg2,
@@ -1114,7 +1114,8 @@ fn reduced_28<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal
 
 fn state_29<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match *p.peek() {
-        Some(Token::Semicolon) => p.shift(state_41, reduced_41),
+        Some(Token::Comma) => p.shift(state_41, reduced_41),
+        Some(Token::Semicolon) => p.shift(state_42, reduced_42),
         _ => panic!("syntax error, unexpected {:?}", p.peek()),
     };
 }
@@ -1136,7 +1137,7 @@ fn state_30<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
 
 fn reduced_30<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match nt {
-        Nonterminal::Nt5(..) => p.goto(nt, state_42, reduced_42),
+        Nonterminal::Nt5(..) => p.goto(nt, state_43, reduced_43),
         Nonterminal::Nt6(..) => p.goto(nt, state_19, reduced_19),
         Nonterminal::Nt7(..) => p.goto(nt, state_20, reduced_20),
         Nonterminal::Nt8(..) => p.goto(nt, state_21, reduced_21),
@@ -1270,7 +1271,7 @@ fn reduced_32<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal
 
 fn state_33<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match *p.peek() {
-        Some(Token::Code(_)) => p.shift(state_43, reduced_43),
+        Some(Token::Code(_)) => p.shift(state_44, reduced_44),
         _ => panic!("syntax error, unexpected {:?}", p.peek()),
     };
 }
@@ -1397,7 +1398,7 @@ fn reduced_35<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal
 
 fn state_36<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match *p.peek() {
-        Some(Token::Ident(_)) => p.shift(state_44, reduced_44),
+        Some(Token::Ident(_)) => p.shift(state_45, reduced_45),
         _ => panic!("syntax error, unexpected {:?}", p.peek()),
     };
 }
@@ -1628,8 +1629,8 @@ fn state_40<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
     match *p.peek() {
         Some(Token::Ident(_)) => p.shift(state_27, reduced_27),
         Some(Token::LParen) => p.shift(state_28, reduced_28),
-        Some(Token::RParen) => p.shift(state_45, reduced_45),
-        Some(Token::Semicolon) => p.shift(state_46, reduced_46),
+        Some(Token::RParen) => p.shift(state_46, reduced_46),
+        Some(Token::Semicolon) => p.shift(state_47, reduced_47),
         _ => panic!("syntax error, unexpected {:?}", p.peek()),
     };
 }
@@ -1646,6 +1647,19 @@ fn reduced_40<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal
 
 fn state_41<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match *p.peek() {
+        Some(Token::Code(_)) => p.shift(state_48, reduced_48),
+        _ => panic!("syntax error, unexpected {:?}", p.peek()),
+    };
+}
+
+fn reduced_41<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+    match nt {
+        _ => unreachable!(),
+    };
+}
+
+fn state_42<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+    match *p.peek() {
         None => p.reduce(5, |args|{
             let mut args = args.into_iter();
             let arg0 = args.next().unwrap().unwrap_terminal();
@@ -1653,7 +1667,7 @@ fn state_41<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg2 = args.next().unwrap().unwrap_terminal();
             let arg3 = args.next().unwrap().unwrap_terminal();
             let arg4 = args.next().unwrap().unwrap_terminal();
-            let reduced: ast::TokenDecl = reduce_token_decl_a(
+            let reduced: ast::TokenDecl = reduce_token_decl_b(
                 arg0,
                 arg1,
                 arg2,
@@ -1669,7 +1683,7 @@ fn state_41<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg2 = args.next().unwrap().unwrap_terminal();
             let arg3 = args.next().unwrap().unwrap_terminal();
             let arg4 = args.next().unwrap().unwrap_terminal();
-            let reduced: ast::TokenDecl = reduce_token_decl_a(
+            let reduced: ast::TokenDecl = reduce_token_decl_b(
                 arg0,
                 arg1,
                 arg2,
@@ -1685,7 +1699,7 @@ fn state_41<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg2 = args.next().unwrap().unwrap_terminal();
             let arg3 = args.next().unwrap().unwrap_terminal();
             let arg4 = args.next().unwrap().unwrap_terminal();
-            let reduced: ast::TokenDecl = reduce_token_decl_a(
+            let reduced: ast::TokenDecl = reduce_token_decl_b(
                 arg0,
                 arg1,
                 arg2,
@@ -1701,7 +1715,7 @@ fn state_41<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
             let arg2 = args.next().unwrap().unwrap_terminal();
             let arg3 = args.next().unwrap().unwrap_terminal();
             let arg4 = args.next().unwrap().unwrap_terminal();
-            let reduced: ast::TokenDecl = reduce_token_decl_a(
+            let reduced: ast::TokenDecl = reduce_token_decl_b(
                 arg0,
                 arg1,
                 arg2,
@@ -1714,23 +1728,23 @@ fn state_41<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
     };
 }
 
-fn reduced_41<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn reduced_42<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match nt {
         _ => unreachable!(),
     };
 }
 
-fn state_42<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn state_43<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match *p.peek() {
         Some(Token::Ident(_)) => p.shift(state_27, reduced_27),
         Some(Token::Keyword(Keyword::Epsilon)) => p.shift(state_22, reduced_22),
         Some(Token::LParen) => p.shift(state_28, reduced_28),
-        Some(Token::RBrace) => p.shift(state_47, reduced_47),
+        Some(Token::RBrace) => p.shift(state_49, reduced_49),
         _ => panic!("syntax error, unexpected {:?}", p.peek()),
     };
 }
 
-fn reduced_42<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn reduced_43<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match nt {
         Nonterminal::Nt6(..) => p.goto(nt, state_32, reduced_32),
         Nonterminal::Nt7(..) => p.goto(nt, state_20, reduced_20),
@@ -1743,20 +1757,20 @@ fn reduced_42<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal
     };
 }
 
-fn state_43<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn state_44<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match *p.peek() {
-        Some(Token::Semicolon) => p.shift(state_48, reduced_48),
+        Some(Token::Semicolon) => p.shift(state_50, reduced_50),
         _ => panic!("syntax error, unexpected {:?}", p.peek()),
     };
 }
 
-fn reduced_43<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn reduced_44<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match nt {
         _ => unreachable!(),
     };
 }
 
-fn state_44<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn state_45<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match *p.peek() {
         Some(Token::Ident(_)) => p.reduce(3, |args|{
             let mut args = args.into_iter();
@@ -1822,13 +1836,13 @@ fn state_44<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
     };
 }
 
-fn reduced_44<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn reduced_45<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match nt {
         _ => unreachable!(),
     };
 }
 
-fn state_45<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn state_46<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match *p.peek() {
         Some(Token::Ident(_)) => p.reduce(3, |args|{
             let mut args = args.into_iter();
@@ -1942,13 +1956,13 @@ fn state_45<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
     };
 }
 
-fn reduced_45<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn reduced_46<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match nt {
         _ => unreachable!(),
     };
 }
 
-fn state_46<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn state_47<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match *p.peek() {
         Some(Token::Ident(_)) => p.shift(state_27, reduced_27),
         Some(Token::LParen) => p.shift(state_28, reduced_28),
@@ -1956,9 +1970,9 @@ fn state_46<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
     };
 }
 
-fn reduced_46<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn reduced_47<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match nt {
-        Nonterminal::Nt8(..) => p.goto(nt, state_49, reduced_49),
+        Nonterminal::Nt8(..) => p.goto(nt, state_51, reduced_51),
         Nonterminal::Nt9(..) => p.goto(nt, state_23, reduced_23),
         Nonterminal::Nt10(..) => p.goto(nt, state_24, reduced_24),
         Nonterminal::Nt11(..) => p.goto(nt, state_26, reduced_26),
@@ -1967,7 +1981,20 @@ fn reduced_46<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal
     };
 }
 
-fn state_47<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn state_48<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+    match *p.peek() {
+        Some(Token::Semicolon) => p.shift(state_52, reduced_52),
+        _ => panic!("syntax error, unexpected {:?}", p.peek()),
+    };
+}
+
+fn reduced_48<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+    match nt {
+        _ => unreachable!(),
+    };
+}
+
+fn state_49<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match *p.peek() {
         None => p.reduce(6, |args|{
             let mut args = args.into_iter();
@@ -2045,13 +2072,13 @@ fn state_47<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
     };
 }
 
-fn reduced_47<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn reduced_49<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match nt {
         _ => unreachable!(),
     };
 }
 
-fn state_48<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn state_50<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match *p.peek() {
         Some(Token::Ident(_)) => p.reduce(4, |args|{
             let mut args = args.into_iter();
@@ -2113,22 +2140,22 @@ fn state_48<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
     };
 }
 
-fn reduced_48<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn reduced_50<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match nt {
         _ => unreachable!(),
     };
 }
 
-fn state_49<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn state_51<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match *p.peek() {
         Some(Token::Ident(_)) => p.shift(state_27, reduced_27),
         Some(Token::LParen) => p.shift(state_28, reduced_28),
-        Some(Token::RParen) => p.shift(state_50, reduced_50),
+        Some(Token::RParen) => p.shift(state_53, reduced_53),
         _ => panic!("syntax error, unexpected {:?}", p.peek()),
     };
 }
 
-fn reduced_49<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn reduced_51<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match nt {
         Nonterminal::Nt9(..) => p.goto(nt, state_35, reduced_35),
         Nonterminal::Nt10(..) => p.goto(nt, state_24, reduced_24),
@@ -2138,7 +2165,99 @@ fn reduced_49<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal
     };
 }
 
-fn state_50<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn state_52<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+    match *p.peek() {
+        None => p.reduce(7, |args|{
+            let mut args = args.into_iter();
+            let arg0 = args.next().unwrap().unwrap_terminal();
+            let arg1 = args.next().unwrap().unwrap_nonterminal().unwrap_nt3();
+            let arg2 = args.next().unwrap().unwrap_terminal();
+            let arg3 = args.next().unwrap().unwrap_terminal();
+            let arg4 = args.next().unwrap().unwrap_terminal();
+            let arg5 = args.next().unwrap().unwrap_terminal();
+            let arg6 = args.next().unwrap().unwrap_terminal();
+            let reduced: ast::TokenDecl = reduce_token_decl_a(
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+                arg6,
+            );
+            Nonterminal::Nt2(reduced)
+        }),
+        Some(Token::Ident(_)) => p.reduce(7, |args|{
+            let mut args = args.into_iter();
+            let arg0 = args.next().unwrap().unwrap_terminal();
+            let arg1 = args.next().unwrap().unwrap_nonterminal().unwrap_nt3();
+            let arg2 = args.next().unwrap().unwrap_terminal();
+            let arg3 = args.next().unwrap().unwrap_terminal();
+            let arg4 = args.next().unwrap().unwrap_terminal();
+            let arg5 = args.next().unwrap().unwrap_terminal();
+            let arg6 = args.next().unwrap().unwrap_terminal();
+            let reduced: ast::TokenDecl = reduce_token_decl_a(
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+                arg6,
+            );
+            Nonterminal::Nt2(reduced)
+        }),
+        Some(Token::Keyword(Keyword::Token)) => p.reduce(7, |args|{
+            let mut args = args.into_iter();
+            let arg0 = args.next().unwrap().unwrap_terminal();
+            let arg1 = args.next().unwrap().unwrap_nonterminal().unwrap_nt3();
+            let arg2 = args.next().unwrap().unwrap_terminal();
+            let arg3 = args.next().unwrap().unwrap_terminal();
+            let arg4 = args.next().unwrap().unwrap_terminal();
+            let arg5 = args.next().unwrap().unwrap_terminal();
+            let arg6 = args.next().unwrap().unwrap_terminal();
+            let reduced: ast::TokenDecl = reduce_token_decl_a(
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+                arg6,
+            );
+            Nonterminal::Nt2(reduced)
+        }),
+        Some(Token::Semicolon) => p.reduce(7, |args|{
+            let mut args = args.into_iter();
+            let arg0 = args.next().unwrap().unwrap_terminal();
+            let arg1 = args.next().unwrap().unwrap_nonterminal().unwrap_nt3();
+            let arg2 = args.next().unwrap().unwrap_terminal();
+            let arg3 = args.next().unwrap().unwrap_terminal();
+            let arg4 = args.next().unwrap().unwrap_terminal();
+            let arg5 = args.next().unwrap().unwrap_terminal();
+            let arg6 = args.next().unwrap().unwrap_terminal();
+            let reduced: ast::TokenDecl = reduce_token_decl_a(
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+                arg6,
+            );
+            Nonterminal::Nt2(reduced)
+        }),
+        _ => panic!("syntax error, unexpected {:?}", p.peek()),
+    };
+}
+
+fn reduced_52<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+    match nt {
+        _ => unreachable!(),
+    };
+}
+
+fn state_53<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match *p.peek() {
         Some(Token::Star) => p.reduce(5, |args|{
             let mut args = args.into_iter();
@@ -2176,7 +2295,7 @@ fn state_50<P>(p: &mut P) where P: Parser<Terminal = Terminal, Nonterminal = Non
     };
 }
 
-fn reduced_50<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
+fn reduced_53<P>(p: &mut P, nt: Nonterminal) where P: Parser<Terminal = Terminal, Nonterminal = Nonterminal> {
     match nt {
         _ => unreachable!(),
     };
