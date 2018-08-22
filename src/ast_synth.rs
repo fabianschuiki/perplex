@@ -7,22 +7,40 @@
 //! rules of the grammar, and the user may supply some of the nodes and
 //! reduction functions themself.
 
-use std::collections::HashMap;
 use indexmap::IndexMap;
+use std::collections::{HashMap, HashSet};
 
-use ext::{Grammar, Nonterminal, NonterminalId, Sequence, SequenceId, Symbol, SymbolKind,
-          TerminalId};
+use ext::{
+    Grammar, Nonterminal, NonterminalId, Sequence, SequenceId, Symbol, SymbolKind, TerminalId,
+};
 
 /// A synthesis context.
 ///
 /// This struct is used to hold all intermediate values that are generated
 /// during synthesis.
-#[derive(Debug, Default)]
-struct Context {
+#[derive(Debug)]
+struct Context<'a> {
+    grammar: &'a Grammar,
     nonterm_types: HashMap<NonterminalId, Type>,
     seq_types: HashMap<SequenceId, Type>,
+    sym_types: HashMap<SequenceId, Vec<Type>>,
     nodes: Vec<Node>,
     names: HashMap<String, usize>,
+    reduce_fns: HashMap<SequenceId, Vec<usize>>,
+}
+
+impl<'a> Context<'a> {
+    fn new(grammar: &'a Grammar) -> Context<'a> {
+        Context {
+            grammar: grammar,
+            nonterm_types: HashMap::new(),
+            seq_types: HashMap::new(),
+            sym_types: HashMap::new(),
+            nodes: Vec::new(),
+            names: HashMap::new(),
+            reduce_fns: HashMap::new(),
+        }
+    }
 }
 
 fn alloc_name<S: AsRef<str>>(ctx: &mut Context, name: S) -> String {
@@ -72,7 +90,7 @@ pub enum Type {
 }
 
 fn synth(grammar: &Grammar) {
-    let mut ctx = Context::default();
+    let mut ctx = Context::new(grammar);
     for nt in grammar.nonterminals() {
         map_nonterminal(&mut ctx, nt);
     }
@@ -82,31 +100,73 @@ fn synth(grammar: &Grammar) {
         println!("");
         codegen_node(&ctx, grammar, n);
     }
+
+    for (&seqid, f) in &ctx.reduce_fns {
+        println!("");
+        codegen_reduce_fn(&ctx, seqid, f);
+    }
 }
 
 fn map_nonterminal(ctx: &mut Context, nt: &Nonterminal) -> Type {
-    let seqs: Vec<_> = nt.rules()
-        .map(|rule| map_sequence(ctx, &rule.rhs, &nt.name))
+    trace!("mapping nonterminal {}", nt.name);
+    let seqs: Vec<_> = nt
+        .rules()
+        .enumerate()
+        .map(|(i, rule)| map_sequence(ctx, &rule.rhs, &format!("{}_variant_{}", nt.name, i + 1)))
         .collect();
-    let ty = if seqs.len() == 1 {
-        seqs.into_iter().next().unwrap()
-    } else {
-        let ty = Type::Node(ctx.nodes.len());
-        let node = Node {
-            name: alloc_name(ctx, &nt.name),
-            kind: NodeKind::Enum(seqs),
-        };
-        ctx.nodes.push(node);
-        ty
+    // let ty = if seqs.len() == 1 {
+    //     seqs.into_iter().next().unwrap()
+    // } else {
+    let ty = Type::Node(ctx.nodes.len());
+    let node = Node {
+        name: alloc_name(ctx, &nt.name),
+        kind: NodeKind::Enum(seqs),
     };
+    ctx.nodes.push(node);
+    // ty
+    // };
     ctx.nonterm_types.insert(nt.id, ty.clone());
     ty
 }
 
 fn map_sequence(ctx: &mut Context, seq: &Sequence, name_stem: &str) -> Type {
+    trace!("mapping sequence {}", seq.pretty(ctx.grammar));
+
+    // Check if any symbol in the sequence is named. If not, we just gather up
+    // the value-producing symbols as a tuple.
+    let any_names = seq.symbols.iter().any(|s| s.name.is_some());
+    if !any_names {
+        map_sequence_tuple(ctx, seq, name_stem)
+    } else {
+        map_sequence_struct(ctx, seq, name_stem)
+    }
+}
+
+fn map_sequence_tuple(ctx: &mut Context, seq: &Sequence, name_stem: &str) -> Type {
+    let fields: Vec<_> = seq
+        .symbols
+        .iter()
+        .map(|s| map_symbol(ctx, s, name_stem))
+        .collect();
+    ctx.sym_types.insert(seq.id, fields.clone());
+    let reduce_fn = (0..fields.len()).collect();
+    ctx.reduce_fns.insert(seq.id, reduce_fn);
+    let ty = Type::Node(ctx.nodes.len());
+    let node = Node {
+        name: alloc_name(ctx, name_stem),
+        kind: NodeKind::Tuple(fields),
+    };
+    ctx.nodes.push(node);
+    ctx.seq_types.insert(seq.id, ty.clone());
+    ty
+}
+
+fn map_sequence_struct(ctx: &mut Context, seq: &Sequence, name_stem: &str) -> Type {
     let mut fields = IndexMap::<String, Type>::new();
+    let mut sym_tys = Vec::new();
     for symbol in &seq.symbols {
         let ty = map_symbol(ctx, symbol, name_stem);
+        sym_tys.push(ty.clone());
         if let Some(ref name) = symbol.name {
             if fields.insert(name.clone(), ty).is_some() {
                 panic!("symbol name `{}` used multiple times", name);
@@ -129,6 +189,7 @@ fn map_sequence(ctx: &mut Context, seq: &Sequence, name_stem: &str) -> Type {
         }
     }
 
+    ctx.sym_types.insert(seq.id, sym_tys);
     let ty = Type::Node(ctx.nodes.len());
     let node = Node {
         name: alloc_name(ctx, name_stem),
@@ -191,6 +252,9 @@ pub enum NodeKind {
     /// optional type.
     Union(Vec<(String, Type)>),
 
+    /// A tuple node in the AST.
+    Tuple(Vec<Type>),
+
     /// An enumerated node in the AST.
     ///
     /// Enumerated nodes have separate variants for each node type returned by the
@@ -207,6 +271,13 @@ fn codegen_node(ctx: &Context, grammar: &Grammar, node: &Node) {
                 println!("    pub {}: {},", name, codegen_type(ctx, grammar, ty));
             }
             println!("}}");
+        }
+        NodeKind::Tuple(ref fields) => {
+            println!("pub struct {} (", node.name);
+            for ty in fields {
+                println!("    pub {},", codegen_type(ctx, grammar, ty));
+            }
+            println!(");");
         }
         NodeKind::Enum(ref variants) => {
             println!("pub enum {} {{", node.name);
@@ -229,6 +300,58 @@ fn codegen_type(ctx: &Context, grammar: &Grammar, ty: &Type) -> String {
         Type::Array(ref ty) => format!("Vec<{}>", codegen_type(ctx, grammar, &*ty)),
         Type::Node(index) => ctx.nodes[index].name.clone(),
     }
+}
+
+fn codegen_reduce_fn(ctx: &Context, seqid: SequenceId, mapping: &[usize]) {
+    println!("// sequence {}", seqid);
+
+    // Assemble the arguments.
+    let used_syms: HashSet<_> = mapping.iter().cloned().collect();
+    let mut args = Vec::new();
+    for (i, ty) in ctx.sym_types[&seqid].iter().enumerate() {
+        let prefix = if used_syms.contains(&i) { "" } else { "_" };
+        args.push(format!(
+            "{}arg{}: {}",
+            prefix,
+            i,
+            codegen_type(ctx, ctx.grammar, ty)
+        ));
+    }
+
+    let args = args.into_iter().fold(String::new(), |mut s, i| {
+        if !s.is_empty() {
+            s.push_str(", ");
+        }
+        s.push_str(&i);
+        s
+    });
+
+    let ty = &ctx.seq_types[&seqid];
+    let rety = codegen_type(ctx, ctx.grammar, ty);
+    println!("pub fn reduce_{}({}) -> {} {{", seqid, args, rety);
+    let node_id = match *ty {
+        Type::Node(id) => id,
+        _ => panic!("reduction function should yield non-node type"),
+    };
+    let node = &ctx.nodes[node_id];
+    match node.kind {
+        NodeKind::Union(ref fields) => {
+            println!("    {} {{", node.name);
+            for (&(ref name, _), &i) in fields.iter().zip(mapping.iter()) {
+                println!("        {}: arg{},", name, i);
+            }
+            println!("    }}");
+        }
+        NodeKind::Tuple(ref _fields) => {
+            println!("    {} (", node.name);
+            for &i in mapping {
+                println!("        arg{},", i);
+            }
+            println!("    )");
+        }
+        NodeKind::Enum(ref _variants) => {}
+    }
+    println!("}}");
 }
 
 #[cfg(test)]
