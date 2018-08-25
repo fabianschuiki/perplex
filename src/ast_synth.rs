@@ -7,11 +7,13 @@
 //! rules of the grammar, and the user may supply some of the nodes and
 //! reduction functions themself.
 
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use std::collections::{HashMap, HashSet};
+use std::ops::{Index, IndexMut};
+use std::usize;
 
 use ext::{
-    Grammar, Nonterminal, NonterminalId, Sequence, SequenceId, Symbol, SymbolKind, TerminalId,
+    Grammar, Nonterminal, NonterminalId, Rule, Sequence, SequenceId, Symbol, SymbolKind, TerminalId,
 };
 
 /// A synthesis context.
@@ -27,6 +29,10 @@ struct Context<'a> {
     nodes: Vec<Node>,
     names: HashMap<String, usize>,
     reduce_fns: HashMap<SequenceId, Vec<usize>>,
+    nonterm_nodes: Vec<NonterminalNode<'a>>,
+    seq_nodes: Vec<SequenceNode<'a>>,
+    sym_nodes: Vec<SymbolNode<'a>>,
+    nonterm_mapping: HashMap<NonterminalId, NonterminalNodeId>,
 }
 
 impl<'a> Context<'a> {
@@ -39,7 +45,71 @@ impl<'a> Context<'a> {
             nodes: Vec::new(),
             names: HashMap::new(),
             reduce_fns: HashMap::new(),
+            nonterm_nodes: Vec::new(),
+            seq_nodes: Vec::new(),
+            sym_nodes: Vec::new(),
+            nonterm_mapping: HashMap::new(),
         }
+    }
+
+    fn add_nonterminal_node(&mut self, node: NonterminalNode<'a>) -> NonterminalNodeId {
+        let id = NonterminalNodeId(self.nonterm_nodes.len());
+        self.nonterm_mapping.insert(node.nonterminal.id, id);
+        self.nonterm_nodes.push(node);
+        id
+    }
+
+    fn add_sequence_node(&mut self, node: SequenceNode<'a>) -> SequenceNodeId {
+        let id = SequenceNodeId(self.seq_nodes.len());
+        self.seq_nodes.push(node);
+        id
+    }
+
+    fn add_symbol_node(&mut self, node: SymbolNode<'a>) -> SymbolNodeId {
+        let id = SymbolNodeId(self.sym_nodes.len());
+        self.sym_nodes.push(node);
+        id
+    }
+}
+
+// Allow indexing into the context by node IDs.
+
+impl<'a> Index<NonterminalNodeId> for Context<'a> {
+    type Output = NonterminalNode<'a>;
+    fn index(&self, idx: NonterminalNodeId) -> &NonterminalNode<'a> {
+        &self.nonterm_nodes[idx.0]
+    }
+}
+
+impl<'a> IndexMut<NonterminalNodeId> for Context<'a> {
+    fn index_mut(&mut self, idx: NonterminalNodeId) -> &mut NonterminalNode<'a> {
+        &mut self.nonterm_nodes[idx.0]
+    }
+}
+
+impl<'a> Index<SequenceNodeId> for Context<'a> {
+    type Output = SequenceNode<'a>;
+    fn index(&self, idx: SequenceNodeId) -> &SequenceNode<'a> {
+        &self.seq_nodes[idx.0]
+    }
+}
+
+impl<'a> IndexMut<SequenceNodeId> for Context<'a> {
+    fn index_mut(&mut self, idx: SequenceNodeId) -> &mut SequenceNode<'a> {
+        &mut self.seq_nodes[idx.0]
+    }
+}
+
+impl<'a> Index<SymbolNodeId> for Context<'a> {
+    type Output = SymbolNode<'a>;
+    fn index(&self, idx: SymbolNodeId) -> &SymbolNode<'a> {
+        &self.sym_nodes[idx.0]
+    }
+}
+
+impl<'a> IndexMut<SymbolNodeId> for Context<'a> {
+    fn index_mut(&mut self, idx: SymbolNodeId) -> &mut SymbolNode<'a> {
+        &mut self.sym_nodes[idx.0]
     }
 }
 
@@ -47,7 +117,7 @@ fn alloc_name<S: AsRef<str>>(ctx: &mut Context, name: S) -> String {
     let mut buffer = String::new();
     let mut capitalize = true;
     for c in name.as_ref().chars() {
-        if c.is_alphabetic() {
+        if c.is_alphanumeric() {
             match capitalize {
                 true => buffer.extend(c.to_uppercase()),
                 false => buffer.extend(c.to_lowercase()),
@@ -93,26 +163,299 @@ fn synth(grammar: &Grammar) {
     let mut ctx = Context::new(grammar);
     for nt in grammar.nonterminals() {
         map_nonterminal(&mut ctx, nt);
+
+        // Create a new node for this nonterminal.
+        let mut node = NonterminalNode {
+            nonterminal: nt,
+            rules: vec![],
+            children: Default::default(),
+        };
+        map_nonterminal_new(&mut ctx, &mut node);
+        let _id = ctx.add_nonterminal_node(node);
     }
+    debug!("spawned {} nonterminal nodes", ctx.nonterm_nodes.len());
+    debug!("spawned {} sequence nodes", ctx.seq_nodes.len());
+    debug!("spawned {} symbol nodes", ctx.sym_nodes.len());
     // println!("{:#?}", ctx);
 
-    for n in &ctx.nodes {
-        println!("");
-        codegen_node(&ctx, grammar, n);
+    // Gather child node information.
+    for i in (0..ctx.nonterm_nodes.len()).map(|i| NonterminalNodeId(i)) {
+        gather_children_nonterminal(&mut ctx, i);
+    }
+    if !ctx.nonterm_nodes.is_empty() {
+        find_recursions(&mut ctx, NonterminalNodeId(0), &mut HashSet::new());
     }
 
-    for (&seqid, f) in &ctx.reduce_fns {
-        println!("");
-        codegen_reduce_fn(&ctx, seqid, f);
+    // for n in &ctx.nodes {
+    //     println!("");
+    //     codegen_node(&ctx, grammar, n);
+    // }
+
+    // for (&seqid, f) in &ctx.reduce_fns {
+    //     println!("");
+    //     codegen_reduce_fn(&ctx, seqid, f);
+    // }
+}
+
+/// A synthesis tree node for a nonterminal.
+#[derive(Debug)]
+pub struct NonterminalNode<'a> {
+    nonterminal: &'a Nonterminal,
+    rules: Vec<SequenceNodeId>,
+    children: Children,
+    // TODO: Add reduction function details.
+}
+
+/// A synthesis tree node for a sequence.
+#[derive(Debug)]
+pub struct SequenceNode<'a> {
+    nonterminal: &'a Nonterminal,
+    rule: &'a Rule,
+    parent: Option<&'a Sequence>,
+    sequence: &'a Sequence,
+    tuple: Vec<SymbolNodeId>,
+    named: IndexMap<String, SymbolNodeId>,
+    children: Children,
+    // TODO: Add reduction function details.
+}
+
+/// A synthesis node for a symbol.
+#[derive(Debug)]
+pub struct SymbolNode<'a> {
+    nonterminal: &'a Nonterminal,
+    rule: &'a Rule,
+    parent: Option<&'a Sequence>,
+    sequence: &'a Sequence,
+    offset: usize,
+    symbol: &'a Symbol,
+    children: Children,
+    recursive: bool,
+}
+
+/// A set of child nodes.
+#[derive(Debug, Default)]
+pub struct Children {
+    nonterminals: IndexSet<NonterminalNodeId>,
+    sequences: IndexSet<SequenceNodeId>,
+    symbols: IndexSet<SymbolNodeId>,
+}
+
+impl Children {
+    fn extend(&mut self, other: &Children) {
+        self.nonterminals.extend(other.nonterminals.iter().cloned());
+        self.sequences.extend(other.sequences.iter().cloned());
+        self.symbols.extend(other.symbols.iter().cloned());
     }
 }
 
+/// A unique nonterminal node identifier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct NonterminalNodeId(pub usize);
+
+/// A unique sequence node identifier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SequenceNodeId(pub usize);
+
+/// A unique symbol node identifier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SymbolNodeId(pub usize);
+
+fn map_nonterminal_new<'a>(ctx: &mut Context<'a>, node: &mut NonterminalNode<'a>) {
+    trace!("mapping nonterminal {:?}", node.nonterminal.id);
+
+    // Spawn the nodes for each of the rules.
+    for rule in node.nonterminal.rules() {
+        let mut seqnode = SequenceNode {
+            nonterminal: node.nonterminal,
+            rule: rule,
+            parent: None,
+            sequence: &rule.rhs,
+            tuple: Vec::new(),
+            named: IndexMap::new(),
+            children: Default::default(),
+        };
+        map_sequence_new(ctx, &mut seqnode);
+        let id = ctx.add_sequence_node(seqnode);
+        node.rules.push(id);
+    }
+}
+
+fn map_sequence_new<'a>(ctx: &mut Context<'a>, node: &mut SequenceNode<'a>) {
+    trace!("mapping sequence {:?}", node.sequence.id);
+
+    // Spawn the nodes for each of the symbols.
+    for (offset, sym) in node.sequence.symbols.iter().enumerate() {
+        let mut symnode = SymbolNode {
+            nonterminal: node.nonterminal,
+            rule: node.rule,
+            parent: node.parent,
+            sequence: node.sequence,
+            offset: offset,
+            symbol: sym,
+            children: Default::default(),
+            recursive: false,
+        };
+        map_symbol_new(ctx, &mut symnode);
+        let id = ctx.add_symbol_node(symnode);
+
+        // Add this symbol to the tuple and named fields if appropriate.
+        node.tuple.push(id);
+        if let Some(ref name) = sym.name {
+            node.named.insert(name.clone(), id);
+        }
+    }
+}
+
+fn map_symbol_new<'a>(ctx: &mut Context<'a>, node: &mut SymbolNode<'a>) {
+    trace!("mapping symbol {:?}.{}", node.sequence.id, node.offset);
+    match node.symbol.kind {
+        SymbolKind::Terminal(_) => (),
+        SymbolKind::Nonterminal(_) => (),
+        SymbolKind::Group(ref g) => {
+            // TODO: track the sequence id.
+            let mut seqnode = SequenceNode {
+                nonterminal: node.nonterminal,
+                rule: node.rule,
+                parent: Some(node.sequence),
+                sequence: g,
+                tuple: Vec::new(),
+                named: IndexMap::new(),
+                children: Default::default(),
+            };
+            map_sequence_new(ctx, &mut seqnode);
+            ctx.add_sequence_node(seqnode);
+        }
+        SymbolKind::Maybe(ref sym) => {
+            // TODO: track the symbol id.
+            let mut symnode = SymbolNode {
+                nonterminal: node.nonterminal,
+                rule: node.rule,
+                parent: node.parent,
+                sequence: node.sequence,
+                offset: usize::MAX,
+                symbol: sym,
+                children: Default::default(),
+                recursive: false,
+            };
+            map_symbol_new(ctx, &mut symnode);
+            ctx.add_symbol_node(symnode);
+        }
+        SymbolKind::Choice(ref syms) => {
+            for sym in syms {
+                // TODO: track the symbol id.
+                let mut symnode = SymbolNode {
+                    nonterminal: node.nonterminal,
+                    rule: node.rule,
+                    parent: node.parent,
+                    sequence: node.sequence,
+                    offset: usize::MAX,
+                    symbol: sym,
+                    children: Default::default(),
+                    recursive: false,
+                };
+                map_symbol_new(ctx, &mut symnode);
+                ctx.add_symbol_node(symnode);
+            }
+        }
+        SymbolKind::Repeat(ref rep, ref sep, _) => {
+            let rep_id = {
+                let mut symnode = SymbolNode {
+                    nonterminal: node.nonterminal,
+                    rule: node.rule,
+                    parent: node.parent,
+                    sequence: node.sequence,
+                    offset: usize::MAX,
+                    symbol: rep,
+                    children: Default::default(),
+                    recursive: false,
+                };
+                map_symbol_new(ctx, &mut symnode);
+                ctx.add_symbol_node(symnode)
+            };
+            let sep_id = if let Some(ref sep) = *sep {
+                let mut symnode = SymbolNode {
+                    nonterminal: node.nonterminal,
+                    rule: node.rule,
+                    parent: node.parent,
+                    sequence: node.sequence,
+                    offset: usize::MAX,
+                    symbol: sep,
+                    children: Default::default(),
+                    recursive: false,
+                };
+                map_symbol_new(ctx, &mut symnode);
+                Some(ctx.add_symbol_node(symnode))
+            } else {
+                None
+            };
+            // TODO: track the symbol ids.
+        }
+    }
+}
+
+fn gather_children_nonterminal(ctx: &mut Context, nt: NonterminalNodeId) {
+    let mut children = Children::default();
+    for rule in ctx[nt].rules.clone() {
+        gather_children_sequence(ctx, rule);
+        children.extend(&ctx[rule].children);
+    }
+    trace!("nonterminal {:?} {:#?}", nt, children);
+    ctx[nt].children = children;
+}
+
+fn gather_children_sequence(ctx: &mut Context, seq: SequenceNodeId) {
+    let mut children = Children::default();
+    for sym in ctx[seq].tuple.clone() {
+        gather_children_symbol(ctx, sym);
+        children.symbols.insert(sym);
+        children.extend(&ctx[sym].children);
+    }
+    trace!("sequence {:?} {:#?}", seq, children);
+    ctx[seq].children = children;
+}
+
+fn gather_children_symbol(ctx: &mut Context, sym: SymbolNodeId) {
+    let mut children = Children::default();
+    match ctx[sym].symbol.kind {
+        SymbolKind::Nonterminal(id) => {
+            children.nonterminals.insert(ctx.nonterm_mapping[&id]);
+        }
+        _ => (),
+    }
+    trace!("symbol {:?} {:#?}", sym, children);
+    ctx[sym].children = children;
+}
+
+fn find_recursions(
+    ctx: &mut Context,
+    node_id: NonterminalNodeId,
+    stack: &mut HashSet<NonterminalNodeId>,
+) -> bool {
+    if !stack.insert(node_id) {
+        return true;
+    }
+    for sym in ctx[node_id].children.symbols.clone() {
+        // find_recursions_sequence(ctx, &ctx[rule], stack);
+        let recursive = match ctx[sym].symbol.kind {
+            SymbolKind::Nonterminal(id) => {
+                let node_id = ctx.nonterm_mapping[&id];
+                find_recursions(ctx, node_id, stack)
+            }
+            _ => false,
+        };
+        ctx[sym].recursive = recursive;
+        if recursive {
+            debug!("recursion in {:?}", sym);
+        }
+    }
+    return false;
+}
+
 fn map_nonterminal(ctx: &mut Context, nt: &Nonterminal) -> Type {
-    trace!("mapping nonterminal {}", nt.name);
     let seqs: Vec<_> = nt
         .rules()
         .enumerate()
-        .map(|(i, rule)| map_sequence(ctx, &rule.rhs, &format!("{}_variant_{}", nt.name, i + 1)))
+        .map(|(i, rule)| map_sequence(ctx, &rule.rhs, &format!("{}_v{}", nt.name, i)))
         .collect();
     // let ty = if seqs.len() == 1 {
     //     seqs.into_iter().next().unwrap()
@@ -130,7 +473,7 @@ fn map_nonterminal(ctx: &mut Context, nt: &Nonterminal) -> Type {
 }
 
 fn map_sequence(ctx: &mut Context, seq: &Sequence, name_stem: &str) -> Type {
-    trace!("mapping sequence {}", seq.pretty(ctx.grammar));
+    // trace!("mapping sequence {}", seq.pretty(ctx.grammar));
 
     // Check if any symbol in the sequence is named. If not, we just gather up
     // the value-producing symbols as a tuple.
