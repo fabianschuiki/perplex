@@ -142,6 +142,8 @@ fn alloc_name<S: AsRef<str>>(ctx: &mut Context, name: S) -> String {
 /// A type in the AST.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Type {
+    /// The `nothing` type.
+    Nil,
     /// An external type defined by the user.
     Extern(String),
     /// The type of a terminal.
@@ -158,11 +160,14 @@ pub enum Type {
     Array(Box<Type>),
     /// The AST node with the given index.
     Node(NodeId),
+    /// Keep something on the heap. Used for recursive types.
+    Heap(Box<Type>),
 }
 
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            Type::Nil => write!(f, "nil"),
             Type::Extern(ref name) => write!(f, "`{}`", name),
             Type::Terminal(id) => write!(f, "typeof({})", id),
             Type::Nonterminal(id) => write!(f, "typeof({})", id),
@@ -177,12 +182,13 @@ impl fmt::Display for Type {
                         write!(f, "|{}", t)?;
                     }
                 } else {
-                    write!(f, "nil")?;
+                    write!(f, "<empty choice>")?;
                 }
                 Ok(())
             }
             Type::Array(ref ty) => write!(f, "[{}]", ty),
             Type::Node(id) => write!(f, "n{}", id.0),
+            Type::Heap(ref ty) => write!(f, "&{}", ty),
         }
     }
 }
@@ -273,8 +279,22 @@ pub struct SymbolNode<'a> {
     sequence: &'a Sequence,
     offset: usize,
     symbol: &'a Symbol,
+    kind: SymbolNodeKind,
     children: Children,
     recursive: bool,
+}
+
+/// The various forms a synthesis node for a symbol can take.
+#[allow(missing_docs)]
+#[derive(Debug)]
+pub enum SymbolNodeKind {
+    None,
+    Terminal(TerminalId),
+    Nonterminal(NonterminalId),
+    Group(SequenceNodeId),
+    Maybe(SymbolNodeId),
+    Choice(Vec<SymbolNodeId>),
+    Repeat(SymbolNodeId, Option<SymbolNodeId>),
 }
 
 /// A set of child nodes.
@@ -337,6 +357,7 @@ fn map_sequence_new<'a>(ctx: &mut Context<'a>, node: &mut SequenceNode<'a>) {
             sequence: node.sequence,
             offset: offset,
             symbol: sym,
+            kind: SymbolNodeKind::None,
             children: Default::default(),
             recursive: false,
         };
@@ -354,10 +375,9 @@ fn map_sequence_new<'a>(ctx: &mut Context<'a>, node: &mut SequenceNode<'a>) {
 fn map_symbol_new<'a>(ctx: &mut Context<'a>, node: &mut SymbolNode<'a>) {
     trace!("mapping symbol {:?}.{}", node.sequence.id, node.offset);
     match node.symbol.kind {
-        SymbolKind::Terminal(_) => (),
-        SymbolKind::Nonterminal(_) => (),
+        SymbolKind::Terminal(id) => node.kind = SymbolNodeKind::Terminal(id),
+        SymbolKind::Nonterminal(id) => node.kind = SymbolNodeKind::Nonterminal(id),
         SymbolKind::Group(ref g) => {
-            // TODO: track the sequence id.
             let mut seqnode = SequenceNode {
                 nonterminal: node.nonterminal,
                 rule: node.rule,
@@ -368,10 +388,10 @@ fn map_symbol_new<'a>(ctx: &mut Context<'a>, node: &mut SymbolNode<'a>) {
                 children: Default::default(),
             };
             map_sequence_new(ctx, &mut seqnode);
-            ctx.add_sequence_node(seqnode);
+            let id = ctx.add_sequence_node(seqnode);
+            node.kind = SymbolNodeKind::Group(id);
         }
         SymbolKind::Maybe(ref sym) => {
-            // TODO: track the symbol id.
             let mut symnode = SymbolNode {
                 nonterminal: node.nonterminal,
                 rule: node.rule,
@@ -379,15 +399,17 @@ fn map_symbol_new<'a>(ctx: &mut Context<'a>, node: &mut SymbolNode<'a>) {
                 sequence: node.sequence,
                 offset: usize::MAX,
                 symbol: sym,
+                kind: SymbolNodeKind::None,
                 children: Default::default(),
                 recursive: false,
             };
             map_symbol_new(ctx, &mut symnode);
-            ctx.add_symbol_node(symnode);
+            let id = ctx.add_symbol_node(symnode);
+            node.kind = SymbolNodeKind::Maybe(id);
         }
         SymbolKind::Choice(ref syms) => {
+            let mut ids = vec![];
             for sym in syms {
-                // TODO: track the symbol id.
                 let mut symnode = SymbolNode {
                     nonterminal: node.nonterminal,
                     rule: node.rule,
@@ -395,12 +417,14 @@ fn map_symbol_new<'a>(ctx: &mut Context<'a>, node: &mut SymbolNode<'a>) {
                     sequence: node.sequence,
                     offset: usize::MAX,
                     symbol: sym,
+                    kind: SymbolNodeKind::None,
                     children: Default::default(),
                     recursive: false,
                 };
                 map_symbol_new(ctx, &mut symnode);
-                ctx.add_symbol_node(symnode);
+                ids.push(ctx.add_symbol_node(symnode));
             }
+            node.kind = SymbolNodeKind::Choice(ids);
         }
         SymbolKind::Repeat(ref rep, ref sep, _) => {
             let rep_id = {
@@ -411,6 +435,7 @@ fn map_symbol_new<'a>(ctx: &mut Context<'a>, node: &mut SymbolNode<'a>) {
                     sequence: node.sequence,
                     offset: usize::MAX,
                     symbol: rep,
+                    kind: SymbolNodeKind::None,
                     children: Default::default(),
                     recursive: false,
                 };
@@ -425,6 +450,7 @@ fn map_symbol_new<'a>(ctx: &mut Context<'a>, node: &mut SymbolNode<'a>) {
                     sequence: node.sequence,
                     offset: usize::MAX,
                     symbol: sep,
+                    kind: SymbolNodeKind::None,
                     children: Default::default(),
                     recursive: false,
                 };
@@ -433,7 +459,7 @@ fn map_symbol_new<'a>(ctx: &mut Context<'a>, node: &mut SymbolNode<'a>) {
             } else {
                 None
             };
-            // TODO: track the symbol ids.
+            node.kind = SymbolNodeKind::Repeat(rep_id, sep_id);
         }
     }
 }
@@ -567,7 +593,7 @@ fn map_sequence_struct(ctx: &mut Context, seq: &Sequence, name_stem: &str) -> Ty
         } else if let Type::Maybe(ty) = ty {
             match *ty {
                 Type::Node(index) => match ctx.nodes[index.0].kind {
-                    NodeKind::Union(ref fs) => fields.extend(
+                    NodeKind::Struct(ref fs) => fields.extend(
                         fs.iter()
                             .cloned()
                             .map(|(name, ty)| (name, Type::Maybe(Box::new(ty)))),
@@ -586,7 +612,7 @@ fn map_sequence_struct(ctx: &mut Context, seq: &Sequence, name_stem: &str) -> Ty
     let ty = Type::Node(NodeId(ctx.nodes.len()));
     let node = Node {
         name: alloc_name(ctx, name_stem),
-        kind: NodeKind::Union(fields.into_iter().collect()),
+        kind: NodeKind::Struct(fields.into_iter().collect()),
     };
     ctx.nodes.push(node);
     ctx.seq_types.insert(seq.id, ty.clone());
@@ -675,23 +701,32 @@ pub struct NodeId(pub usize);
 pub enum NodeKind {
     /// A union node in the AST.
     ///
-    /// Union nodes create one single type of node for all rules associated with a
-    /// nonterminal. Fields that are only present in some of the rules are given an
-    /// optional type.
-    Union(Vec<(String, Type)>),
+    /// Struct nodes create one single type of node for all rules associated
+    /// with a nonterminal. Fields that are only present in some of the rules
+    /// are given an optional type.
+    Struct(Vec<(String, Type)>),
 
     /// A tuple type in the AST.
     Tuple(Vec<Type>),
 
     /// An enumerated node in the AST.
     ///
-    /// Enumerated nodes have separate variants for each node type returned by the
-    /// rules associated with a nonterminal.
+    /// Enumerated nodes have separate variants for each node type returned by
+    /// the rules associated with a nonterminal.
     Enum(Vec<(String, Type)>),
 }
 
 /// Synthesize the node corresponding to a nonterminal.
 fn synth_nonterminal_node(node_id: NonterminalNodeId, synth: &mut AstSynth, ctx: &Context) -> Type {
+    // Don't synthesize the node if already done so.
+    if let Some(ty) = synth
+        .nonterm_types
+        .get(&ctx[node_id].nonterminal.id)
+        .cloned()
+    {
+        return ty;
+    }
+
     debug!("synth {:?} ({})", node_id, ctx[node_id].nonterminal.name);
 
     // Create the node.
@@ -746,9 +781,9 @@ fn synth_sequence_node(node_id: SequenceNodeId, synth: &mut AstSynth, ctx: &Cont
             .iter()
             .map(|(name, &sym_id)| (name.clone(), synth_symbol_node(sym_id, synth, ctx)))
             .collect();
-        NodeKind::Union(fields)
+        NodeKind::Struct(fields)
     };
-    // synth[id].kind = kind;
+    synth[id].kind = kind;
 
     Type::Node(id)
 }
@@ -756,20 +791,57 @@ fn synth_sequence_node(node_id: SequenceNodeId, synth: &mut AstSynth, ctx: &Cont
 fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context) -> Type {
     debug!("synth {:?}", node_id);
 
-    // Create the node.
     let node = &ctx[node_id];
-    let id = synth.add_node(Node {
-        name: format!("seq_{}_symbol_{}", node.sequence.id, node.offset),
-        kind: NodeKind::Enum(Vec::new()),
-    });
+    match node.kind {
+        SymbolNodeKind::None => panic!("symbol kind should have been set"),
+        SymbolNodeKind::Terminal(id) => ctx.grammar[id]
+            .data_type
+            .as_ref()
+            .map(|dt| Type::Extern(dt.clone()))
+            .unwrap_or(Type::Nil),
+        SymbolNodeKind::Nonterminal(id) => {
+            let ty = synth_nonterminal_node(ctx.nonterm_mapping[&id], synth, ctx);
+            if node.recursive {
+                Type::Heap(Box::new(ty))
+            } else {
+                ty
+            }
+        }
+        SymbolNodeKind::Group(id) => synth_sequence_node(id, synth, ctx),
+        SymbolNodeKind::Maybe(id) => Type::Maybe(Box::new(synth_symbol_node(id, synth, ctx))),
+        SymbolNodeKind::Choice(ref ids) => {
+            let id = synth.add_node(Node {
+                name: format!("seq_{}_symbol_{}", node.sequence.id, node.offset),
+                kind: NodeKind::Enum(Vec::new()),
+            });
+            let variants = ids
+                .iter()
+                .map(|&id| {
+                    (
+                        format!("variant_{}", id.0),
+                        synth_symbol_node(id, synth, ctx),
+                    )
+                })
+                .collect();
+            synth[id].kind = NodeKind::Enum(variants);
+            Type::Node(id)
+        }
+        SymbolNodeKind::Repeat(id, _) => Type::Array(Box::new(synth_symbol_node(id, synth, ctx))),
+    }
 
-    Type::Node(id)
+    // // Create the node.
+    // let id = synth.add_node(Node {
+    //     name: format!("seq_{}_symbol_{}", node.sequence.id, node.offset),
+    //     kind: NodeKind::Enum(Vec::new()),
+    // });
+
+    // Type::Node(id)
 }
 
 #[allow(dead_code)]
 fn codegen_node(ctx: &Context, grammar: &Grammar, node: &Node) {
     match node.kind {
-        NodeKind::Union(ref fields) => {
+        NodeKind::Struct(ref fields) => {
             println!("pub struct {} {{", node.name);
             for &(ref name, ref ty) in fields {
                 println!("    pub {}: {},", name, codegen_type(ctx, grammar, ty));
@@ -795,6 +867,7 @@ fn codegen_node(ctx: &Context, grammar: &Grammar, node: &Node) {
 
 fn codegen_type(ctx: &Context, grammar: &Grammar, ty: &Type) -> String {
     match *ty {
+        Type::Nil => "()".into(),
         Type::Extern(ref e) => e.clone(),
         Type::Terminal(id) => grammar[id].data_type.clone().unwrap_or("()".into()),
         Type::Nonterminal(id) => codegen_type(ctx, grammar, &ctx.nonterm_types[&id]),
@@ -803,6 +876,7 @@ fn codegen_type(ctx: &Context, grammar: &Grammar, ty: &Type) -> String {
         Type::Choice(ref _choices) => panic!("type codegen for choices not yet supported"),
         Type::Array(ref ty) => format!("Vec<{}>", codegen_type(ctx, grammar, &*ty)),
         Type::Node(index) => ctx.nodes[index.0].name.clone(),
+        Type::Heap(ref ty) => format!("Box<{}>", codegen_type(ctx, grammar, &*ty)),
     }
 }
 
@@ -839,7 +913,7 @@ fn codegen_reduce_fn(ctx: &Context, seqid: SequenceId, mapping: &[usize]) {
     };
     let node = &ctx.nodes[node_id.0];
     match node.kind {
-        NodeKind::Union(ref fields) => {
+        NodeKind::Struct(ref fields) => {
             println!("    {} {{", node.name);
             for (&(ref name, _), &i) in fields.iter().zip(mapping.iter()) {
                 println!("        {}: arg{},", name, i);
