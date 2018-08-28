@@ -9,6 +9,7 @@
 
 use indexmap::{IndexMap, IndexSet};
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::ops::{Index, IndexMut};
 use std::usize;
 
@@ -139,7 +140,7 @@ fn alloc_name<S: AsRef<str>>(ctx: &mut Context, name: S) -> String {
 }
 
 /// A type in the AST.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Type {
     /// An external type defined by the user.
     Extern(String),
@@ -157,6 +158,39 @@ pub enum Type {
     Array(Box<Type>),
     /// The AST node with the given index.
     Node(usize),
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Type::Extern(ref name) => write!(f, "`{}`", name),
+            Type::Terminal(id) => write!(f, "typeof({})", id),
+            Type::Nonterminal(id) => write!(f, "typeof({})", id),
+            Type::Sequence(id) => write!(f, "typeof({})", id),
+            Type::Maybe(ref ty) => write!(f, "{}?", ty),
+            Type::Choice(ref tys) => {
+                let mut iter = tys.iter();
+                let first = iter.next();
+                if let Some(first) = first {
+                    write!(f, "{}", first)?;
+                    for t in iter {
+                        write!(f, "|{}", t)?;
+                    }
+                } else {
+                    write!(f, "nil")?;
+                }
+                Ok(())
+            }
+            Type::Array(ref ty) => write!(f, "[{}]", ty),
+            Type::Node(id) => write!(f, "n{}", id.0),
+        }
+    }
+}
+
+impl fmt::Debug for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
 }
 
 fn synth(grammar: &Grammar) {
