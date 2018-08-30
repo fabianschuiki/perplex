@@ -4,4 +4,8 @@ token end => `Token::End`;
 
 root => `Root` {
 	IDENT IDENT ;
+	IDENT+ ;
+	IDENT? ;
+	(IDENT IDENT) ;
+	root IDENT ;
 }

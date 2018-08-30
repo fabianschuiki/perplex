@@ -10,11 +10,11 @@ use std::str::FromStr;
 
 use clap::{App, Arg};
 use memmap::Mmap;
+use perplex::backend::generate_parser;
+use perplex::glr;
 use perplex::item_set::{Action, ItemSets};
 use perplex::machine::StateMachine;
-use perplex::backend::generate_parser;
 use perplex::parser;
-use perplex::glr;
 
 fn main() {
     // Parse the command line arguments.
@@ -128,7 +128,8 @@ fn main() {
         return;
     }
     if matches.is_present("synth_ast") {
-        perplex::ast_synth::AstSynth::with_grammar(&ext_grammar);
+        let synth = perplex::ast_synth::AstSynth::with_grammar(&ext_grammar);
+        println!("{}", synth.generate_ast());
         return;
     }
 

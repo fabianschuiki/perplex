@@ -235,6 +235,7 @@ fn synth(grammar: &Grammar) -> AstSynth {
         synth_nonterminal_node(NonterminalNodeId(i), &mut synth, &ctx);
     }
     debug!("synthesized {:#?}", synth);
+    debug!("code for ast:\n{}", synth.generate_ast());
     synth
 
     // for n in &ctx.nodes {
@@ -669,7 +670,62 @@ impl AstSynth {
             panic!("type for nonterminal {:?} already registered", id);
         }
     }
+
+    /// Generate the code for the AST nodes.
+    pub fn generate_ast(&self) -> String {
+        let mut out = String::new();
+        for node in &self.nodes {
+            if !out.is_empty() {
+                out.push_str("\n\n");
+            }
+            out.push_str(&self.generate_ast_node(node));
+        }
+        out
+    }
+
+    /// Generate the code for a single AST node.
+    pub fn generate_ast_node(&self, node: &Node) -> String {
+        let mut out = String::new();
+        match node.kind {
+            NodeKind::Struct(ref fields) => {
+                out.push_str(&format!("pub struct {} {{", node.name));
+                for &(ref name, ref ty) in fields {
+                    out.push_str(&format!("\n    {}: {},", name, self.generate_type(ty)));
+                }
+                out.push_str("\n}");
+            }
+            NodeKind::Tuple(ref fields) => {
+                out.push_str(&format!("pub struct {} (", node.name));
+                for ty in fields {
+                    out.push_str(&format!("\n    {},", self.generate_type(ty)));
+                }
+                out.push_str("\n);");
+            }
+            NodeKind::Enum(ref variants) => {
+                out.push_str(&format!("pub enum {} {{", node.name));
+                for &(ref name, ref ty) in variants {
+                    out.push_str(&format!("\n    {}({}),", name, self.generate_type(ty)));
+                }
+                out.push_str("\n}");
+            }
+        }
+        out
+    }
+
+    /// Generate the code for a type.
+    pub fn generate_type(&self, ty: &Type) -> String {
+        match *ty {
+            Type::Nil => "()".into(),
+            Type::Extern(ref name) => name.clone(),
+            Type::Maybe(ref ty) => format!("Option<{}>", self.generate_type(ty)),
+            Type::Array(ref ty) => format!("Vec<{}>", self.generate_type(ty)),
+            Type::Heap(ref ty) => format!("Box<{}>", self.generate_type(ty)),
+            Type::Node(id) => self[id].name.clone(),
+            _ => panic!("unsupported type `{}`", ty),
+        }
+    }
 }
+
 impl Index<NodeId> for AstSynth {
     type Output = Node;
     fn index(&self, idx: NodeId) -> &Node {
