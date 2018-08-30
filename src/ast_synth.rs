@@ -8,7 +8,7 @@
 //! reduction functions themself.
 
 use indexmap::{IndexMap, IndexSet};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
 use std::usize;
@@ -24,12 +24,6 @@ use ext::{
 #[derive(Debug)]
 struct Context<'a> {
     grammar: &'a Grammar,
-    nonterm_types: HashMap<NonterminalId, Type>,
-    seq_types: HashMap<SequenceId, Type>,
-    sym_types: HashMap<SequenceId, Vec<Type>>,
-    nodes: Vec<Node>,
-    names: HashMap<String, usize>,
-    reduce_fns: HashMap<SequenceId, Vec<usize>>,
     nonterm_nodes: Vec<NonterminalNode<'a>>,
     seq_nodes: Vec<SequenceNode<'a>>,
     sym_nodes: Vec<SymbolNode<'a>>,
@@ -40,12 +34,6 @@ impl<'a> Context<'a> {
     fn new(grammar: &'a Grammar) -> Context<'a> {
         Context {
             grammar: grammar,
-            nonterm_types: HashMap::new(),
-            seq_types: HashMap::new(),
-            sym_types: HashMap::new(),
-            nodes: Vec::new(),
-            names: HashMap::new(),
-            reduce_fns: HashMap::new(),
             nonterm_nodes: Vec::new(),
             seq_nodes: Vec::new(),
             sym_nodes: Vec::new(),
@@ -114,30 +102,30 @@ impl<'a> IndexMut<SymbolNodeId> for Context<'a> {
     }
 }
 
-fn alloc_name<S: AsRef<str>>(ctx: &mut Context, name: S) -> String {
-    let mut buffer = String::new();
-    let mut capitalize = true;
-    for c in name.as_ref().chars() {
-        if c.is_alphanumeric() {
-            match capitalize {
-                true => buffer.extend(c.to_uppercase()),
-                false => buffer.extend(c.to_lowercase()),
-            };
-            capitalize = false;
-        } else {
-            capitalize = true;
-        }
-    }
-    let count = {
-        let v = ctx.names.entry(buffer.clone()).or_insert(0);
-        *v += 1;
-        *v
-    };
-    if count > 1 {
-        buffer = format!("{}{}", buffer, count);
-    }
-    buffer
-}
+// fn alloc_name<S: AsRef<str>>(ctx: &mut Context, name: S) -> String {
+//     let mut buffer = String::new();
+//     let mut capitalize = true;
+//     for c in name.as_ref().chars() {
+//         if c.is_alphanumeric() {
+//             match capitalize {
+//                 true => buffer.extend(c.to_uppercase()),
+//                 false => buffer.extend(c.to_lowercase()),
+//             };
+//             capitalize = false;
+//         } else {
+//             capitalize = true;
+//         }
+//     }
+//     let count = {
+//         let v = ctx.names.entry(buffer.clone()).or_insert(0);
+//         *v += 1;
+//         *v
+//     };
+//     if count > 1 {
+//         buffer = format!("{}{}", buffer, count);
+//     }
+//     buffer
+// }
 
 /// A type in the AST.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -201,10 +189,9 @@ impl fmt::Debug for Type {
 
 fn synth(grammar: &Grammar) -> AstSynth {
     let mut ctx = Context::new(grammar);
-    for nt in grammar.nonterminals() {
-        map_nonterminal(&mut ctx, nt);
 
-        // Create a new node for this nonterminal.
+    // Create nodes for each of the nonterminals.
+    for nt in grammar.nonterminals() {
         let mut node = NonterminalNode {
             nonterminal: nt,
             rules: vec![],
@@ -234,8 +221,9 @@ fn synth(grammar: &Grammar) -> AstSynth {
     for i in 0..ctx.nonterm_nodes.len() {
         synth_nonterminal_node(NonterminalNodeId(i), &mut synth, &ctx);
     }
-    debug!("synthesized {:#?}", synth);
-    debug!("code for ast:\n{}", synth.generate_ast());
+
+    trace!("synthesized {:#?}", synth);
+    trace!("code for ast:\n{}", synth.generate_ast());
     synth
 
     // for n in &ctx.nodes {
@@ -555,122 +543,6 @@ fn find_recursions(
     false
 }
 
-fn map_nonterminal(ctx: &mut Context, nt: &Nonterminal) -> Type {
-    let seqs: Vec<_> = nt
-        .rules()
-        .enumerate()
-        .map(|(i, rule)| {
-            (
-                format!("V{}", i),
-                map_sequence(ctx, &rule.rhs, &format!("{}_v{}", nt.name, i)),
-            )
-        })
-        .collect();
-    // let ty = if seqs.len() == 1 {
-    //     seqs.into_iter().next().unwrap()
-    // } else {
-    let ty = Type::Node(NodeId(ctx.nodes.len()));
-    let node = Node {
-        name: alloc_name(ctx, &nt.name),
-        kind: NodeKind::Enum(seqs),
-    };
-    ctx.nodes.push(node);
-    // ty
-    // };
-    ctx.nonterm_types.insert(nt.id, ty.clone());
-    ty
-}
-
-fn map_sequence(ctx: &mut Context, seq: &Sequence, name_stem: &str) -> Type {
-    // trace!("mapping sequence {}", seq.pretty(ctx.grammar));
-
-    // Check if any symbol in the sequence is named. If not, we just gather up
-    // the value-producing symbols as a tuple.
-    let any_names = seq.symbols.iter().any(|s| s.name.is_some());
-    if !any_names {
-        map_sequence_tuple(ctx, seq, name_stem)
-    } else {
-        map_sequence_struct(ctx, seq, name_stem)
-    }
-}
-
-fn map_sequence_tuple(ctx: &mut Context, seq: &Sequence, name_stem: &str) -> Type {
-    let fields: Vec<_> = seq
-        .symbols
-        .iter()
-        .map(|s| map_symbol(ctx, s, name_stem))
-        .collect();
-    ctx.sym_types.insert(seq.id, fields.clone());
-    let reduce_fn = (0..fields.len()).collect();
-    ctx.reduce_fns.insert(seq.id, reduce_fn);
-    let ty = Type::Node(NodeId(ctx.nodes.len()));
-    let node = Node {
-        name: alloc_name(ctx, name_stem),
-        kind: NodeKind::Tuple(fields),
-    };
-    ctx.nodes.push(node);
-    ctx.seq_types.insert(seq.id, ty.clone());
-    ty
-}
-
-fn map_sequence_struct(ctx: &mut Context, seq: &Sequence, name_stem: &str) -> Type {
-    let mut fields = IndexMap::<String, Type>::new();
-    let mut sym_tys = Vec::new();
-    for symbol in &seq.symbols {
-        let ty = map_symbol(ctx, symbol, name_stem);
-        sym_tys.push(ty.clone());
-        if let Some(ref name) = symbol.name {
-            if fields.insert(name.clone(), ty).is_some() {
-                panic!("symbol name `{}` used multiple times", name);
-            }
-        } else if let Type::Maybe(ty) = ty {
-            match *ty {
-                Type::Node(index) => match ctx.nodes[index.0].kind {
-                    NodeKind::Struct(ref fs) => fields.extend(
-                        fs.iter()
-                            .cloned()
-                            .map(|(name, ty)| (name, Type::Maybe(Box::new(ty)))),
-                    ),
-                    _ => warn!("enum symbol not added to AST due to lacking name"),
-                },
-                t => warn!(
-                    "symbol with type {:?} not added to AST due to lacking name",
-                    t
-                ),
-            }
-        }
-    }
-
-    ctx.sym_types.insert(seq.id, sym_tys);
-    let ty = Type::Node(NodeId(ctx.nodes.len()));
-    let node = Node {
-        name: alloc_name(ctx, name_stem),
-        kind: NodeKind::Struct(fields.into_iter().collect()),
-    };
-    ctx.nodes.push(node);
-    ctx.seq_types.insert(seq.id, ty.clone());
-    ty
-}
-
-fn map_symbol(ctx: &mut Context, symbol: &Symbol, name_stem: &str) -> Type {
-    match symbol.kind {
-        SymbolKind::Terminal(t) => Type::Terminal(t),
-        SymbolKind::Nonterminal(t) => Type::Nonterminal(t),
-        SymbolKind::Group(ref g) => map_sequence(ctx, g, name_stem),
-        SymbolKind::Maybe(ref sym) => Type::Maybe(Box::new(map_symbol(ctx, &*sym, name_stem))),
-        SymbolKind::Choice(ref syms) => {
-            Type::Choice(syms.iter().map(|s| map_symbol(ctx, s, name_stem)).collect())
-        }
-        SymbolKind::Repeat(ref rep, ref sep, _) => {
-            let t = map_symbol(ctx, rep, name_stem);
-            if let Some(ref sep) = *sep {
-                map_symbol(ctx, sep, name_stem);
-            }
-            Type::Array(Box::new(t))
-        }
-    }
-}
-
 /// A synthesized AST.
 ///
 /// This struct holds all the information necessary to synthesis AST nodes and
@@ -815,10 +687,9 @@ fn synth_nonterminal_node(node_id: NonterminalNodeId, synth: &mut AstSynth, ctx:
         return ty;
     }
 
-    debug!("synth {:?} ({})", node_id, ctx[node_id].nonterminal.name);
-
     // Create the node.
     let node = &ctx[node_id];
+    debug!("synth {:?} ({})", node_id, node.nonterminal.name);
     let id = synth.add_node(Node {
         name: format!("nonterm_{}", node.nonterminal.name),
         kind: NodeKind::Enum(Vec::new()),
@@ -916,109 +787,59 @@ fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context)
         }
         SymbolNodeKind::Repeat(id, _) => Type::Array(Box::new(synth_symbol_node(id, synth, ctx))),
     }
-
-    // // Create the node.
-    // let id = synth.add_node(Node {
-    //     name: format!("seq_{}_symbol_{}", node.sequence.id, node.offset),
-    //     kind: NodeKind::Enum(Vec::new()),
-    // });
-
-    // Type::Node(id)
 }
 
-#[allow(dead_code)]
-fn codegen_node(ctx: &Context, grammar: &Grammar, node: &Node) {
-    match node.kind {
-        NodeKind::Struct(ref fields) => {
-            println!("pub struct {} {{", node.name);
-            for &(ref name, ref ty) in fields {
-                println!("    pub {}: {},", name, codegen_type(ctx, grammar, ty));
-            }
-            println!("}}");
-        }
-        NodeKind::Tuple(ref fields) => {
-            println!("pub struct {} (", node.name);
-            for ty in fields {
-                println!("    pub {},", codegen_type(ctx, grammar, ty));
-            }
-            println!(");");
-        }
-        NodeKind::Enum(ref variants) => {
-            println!("pub enum {} {{", node.name);
-            for &(ref i, ref v) in variants.iter() {
-                println!("    {}({}),", i, codegen_type(ctx, grammar, v));
-            }
-            println!("}}");
-        }
-    }
-}
+// fn codegen_reduce_fn(ctx: &Context, seqid: SequenceId, mapping: &[usize]) {
+//     println!("// sequence {}", seqid);
 
-fn codegen_type(ctx: &Context, grammar: &Grammar, ty: &Type) -> String {
-    match *ty {
-        Type::Nil => "()".into(),
-        Type::Extern(ref e) => e.clone(),
-        Type::Terminal(id) => grammar[id].data_type.clone().unwrap_or("()".into()),
-        Type::Nonterminal(id) => codegen_type(ctx, grammar, &ctx.nonterm_types[&id]),
-        Type::Sequence(id) => codegen_type(ctx, grammar, &ctx.seq_types[&id]),
-        Type::Maybe(ref ty) => format!("Option<{}>", codegen_type(ctx, grammar, &*ty)),
-        Type::Choice(ref _choices) => panic!("type codegen for choices not yet supported"),
-        Type::Array(ref ty) => format!("Vec<{}>", codegen_type(ctx, grammar, &*ty)),
-        Type::Node(index) => ctx.nodes[index.0].name.clone(),
-        Type::Heap(ref ty) => format!("Box<{}>", codegen_type(ctx, grammar, &*ty)),
-    }
-}
+//     // Assemble the arguments.
+//     let used_syms: HashSet<_> = mapping.iter().cloned().collect();
+//     let mut args = Vec::new();
+//     for (i, ty) in ctx.sym_types[&seqid].iter().enumerate() {
+//         let prefix = if used_syms.contains(&i) { "" } else { "_" };
+//         args.push(format!(
+//             "{}arg{}: {}",
+//             prefix,
+//             i,
+//             codegen_type(ctx, ctx.grammar, ty)
+//         ));
+//     }
 
-fn codegen_reduce_fn(ctx: &Context, seqid: SequenceId, mapping: &[usize]) {
-    println!("// sequence {}", seqid);
+//     let args = args.into_iter().fold(String::new(), |mut s, i| {
+//         if !s.is_empty() {
+//             s.push_str(", ");
+//         }
+//         s.push_str(&i);
+//         s
+//     });
 
-    // Assemble the arguments.
-    let used_syms: HashSet<_> = mapping.iter().cloned().collect();
-    let mut args = Vec::new();
-    for (i, ty) in ctx.sym_types[&seqid].iter().enumerate() {
-        let prefix = if used_syms.contains(&i) { "" } else { "_" };
-        args.push(format!(
-            "{}arg{}: {}",
-            prefix,
-            i,
-            codegen_type(ctx, ctx.grammar, ty)
-        ));
-    }
-
-    let args = args.into_iter().fold(String::new(), |mut s, i| {
-        if !s.is_empty() {
-            s.push_str(", ");
-        }
-        s.push_str(&i);
-        s
-    });
-
-    let ty = &ctx.seq_types[&seqid];
-    let rety = codegen_type(ctx, ctx.grammar, ty);
-    println!("pub fn reduce_{}({}) -> {} {{", seqid, args, rety);
-    let node_id = match *ty {
-        Type::Node(id) => id,
-        _ => panic!("reduction function should yield non-node type"),
-    };
-    let node = &ctx.nodes[node_id.0];
-    match node.kind {
-        NodeKind::Struct(ref fields) => {
-            println!("    {} {{", node.name);
-            for (&(ref name, _), &i) in fields.iter().zip(mapping.iter()) {
-                println!("        {}: arg{},", name, i);
-            }
-            println!("    }}");
-        }
-        NodeKind::Tuple(ref _fields) => {
-            println!("    {} (", node.name);
-            for &i in mapping {
-                println!("        arg{},", i);
-            }
-            println!("    )");
-        }
-        NodeKind::Enum(ref _variants) => {}
-    }
-    println!("}}");
-}
+//     let ty = &ctx.seq_types[&seqid];
+//     let rety = codegen_type(ctx, ctx.grammar, ty);
+//     println!("pub fn reduce_{}({}) -> {} {{", seqid, args, rety);
+//     let node_id = match *ty {
+//         Type::Node(id) => id,
+//         _ => panic!("reduction function should yield non-node type"),
+//     };
+//     let node = &ctx.nodes[node_id.0];
+//     match node.kind {
+//         NodeKind::Struct(ref fields) => {
+//             println!("    {} {{", node.name);
+//             for (&(ref name, _), &i) in fields.iter().zip(mapping.iter()) {
+//                 println!("        {}: arg{},", name, i);
+//             }
+//             println!("    }}");
+//         }
+//         NodeKind::Tuple(ref _fields) => {
+//             println!("    {} (", node.name);
+//             for &i in mapping {
+//                 println!("        arg{},", i);
+//             }
+//             println!("    )");
+//         }
+//         NodeKind::Enum(ref _variants) => {}
+//     }
+//     println!("}}");
+// }
 
 #[cfg(test)]
 mod tests {
