@@ -223,7 +223,7 @@ fn synth(grammar: &Grammar) -> AstSynth {
         gather_children_nonterminal(&mut ctx, i);
     }
     if !ctx.nonterm_nodes.is_empty() {
-        find_recursions(&mut ctx, NonterminalNodeId(0), &mut HashSet::new());
+        find_recursions(&mut ctx, NonterminalNodeId(0), &mut IndexSet::new());
     }
 
     // Map the proto tree into a synthesized AST.
@@ -287,7 +287,7 @@ pub struct SymbolNode<'a> {
 
 /// The various forms a synthesis node for a symbol can take.
 #[allow(missing_docs)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SymbolNodeKind {
     None,
     Terminal(TerminalId),
@@ -469,6 +469,7 @@ fn gather_children_nonterminal(ctx: &mut Context, nt: NonterminalNodeId) {
     let mut children = Children::default();
     for rule in ctx[nt].rules.clone() {
         gather_children_sequence(ctx, rule);
+        children.sequences.insert(rule);
         children.extend(&ctx[rule].children);
     }
     trace!("nonterminal {:?} {:#?}", nt, children);
@@ -488,26 +489,52 @@ fn gather_children_sequence(ctx: &mut Context, seq: SequenceNodeId) {
 
 fn gather_children_symbol(ctx: &mut Context, sym: SymbolNodeId) {
     let mut children = Children::default();
-    match ctx[sym].symbol.kind {
-        SymbolKind::Nonterminal(id) => {
+    match ctx[sym].kind.clone() {
+        SymbolNodeKind::None => (),
+        SymbolNodeKind::Terminal(_) => (),
+        SymbolNodeKind::Nonterminal(id) => {
             children.nonterminals.insert(ctx.nonterm_mapping[&id]);
         }
-        _ => (),
+        SymbolNodeKind::Group(seq) => {
+            gather_children_sequence(ctx, seq);
+            children.sequences.insert(seq);
+            children.extend(&ctx[seq].children);
+        }
+        SymbolNodeKind::Maybe(sym) => {
+            gather_children_symbol(ctx, sym);
+            children.symbols.insert(sym);
+            children.extend(&ctx[sym].children);
+        }
+        SymbolNodeKind::Choice(syms) => for sym in syms {
+            gather_children_symbol(ctx, sym);
+            children.symbols.insert(sym);
+            children.extend(&ctx[sym].children);
+        },
+        SymbolNodeKind::Repeat(rep, sep) => {
+            gather_children_symbol(ctx, rep);
+            children.symbols.insert(rep);
+            children.extend(&ctx[rep].children);
+            if let Some(sep) = sep {
+                gather_children_symbol(ctx, sep);
+                children.symbols.insert(sep);
+                children.extend(&ctx[sep].children);
+            }
+        }
     }
     trace!("symbol {:?} {:#?}", sym, children);
     ctx[sym].children = children;
 }
 
+/// Find recursive symbols in the subtree of a nonterminal.
 fn find_recursions(
     ctx: &mut Context,
     node_id: NonterminalNodeId,
-    stack: &mut HashSet<NonterminalNodeId>,
+    stack: &mut IndexSet<NonterminalNodeId>,
 ) -> bool {
     if !stack.insert(node_id) {
         return true;
     }
     for sym in ctx[node_id].children.symbols.clone() {
-        // find_recursions_sequence(ctx, &ctx[rule], stack);
         let recursive = match ctx[sym].symbol.kind {
             SymbolKind::Nonterminal(id) => {
                 let node_id = ctx.nonterm_mapping[&id];
@@ -515,12 +542,17 @@ fn find_recursions(
             }
             _ => false,
         };
-        ctx[sym].recursive = recursive;
+        ctx[sym].recursive |= recursive;
         if recursive {
-            debug!("recursion in {:?}", sym);
+            debug!("recursion found:",);
+            for &nt in stack.iter() {
+                debug!(" - {}", ctx[nt].nonterminal.id.pretty(ctx.grammar));
+            }
+            debug!("    -> {}", ctx[sym].symbol.pretty(ctx.grammar));
         }
     }
-    return false;
+    stack.remove(&node_id);
+    false
 }
 
 fn map_nonterminal(ctx: &mut Context, nt: &Nonterminal) -> Type {
