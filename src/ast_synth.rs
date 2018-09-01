@@ -614,9 +614,17 @@ impl AstSynth {
     pub fn generate_reducer(&self, reducer: &Reducer) -> String {
         let mut out = String::new();
         let mut tmp_index = 0;
+        let mut args = String::new();
+        for (i, ty) in reducer.args.iter().enumerate() {
+            if !args.is_empty() {
+                args.push_str(", ");
+            }
+            args.push_str(&format!("arg{}: {}", i, self.generate_type(ty)));
+        }
         out.push_str(&format!(
-            "pub fn {}() -> {} {{",
+            "pub fn {}({}) -> {} {{",
             reducer.name,
+            args,
             self.generate_type(&reducer.ty)
         ));
         // out.push_str(&format!("\n    // {:?}", reducer.root));
@@ -833,6 +841,8 @@ pub struct Reducer {
     pub name: String,
     /// The sequence which is reduced.
     pub sequence: SynthSequence,
+    /// The argument types.
+    pub args: Vec<Type>,
     /// The resulting type.
     pub ty: Type,
     /// The root of the sequence of reduction operations.
@@ -913,13 +923,20 @@ fn synth_sequence_node(
     });
     trace!("created {:?}", id);
 
+    // Map the symbols to types.
+    let sym_tys: IndexMap<_, _> = node
+        .tuple
+        .iter()
+        .map(|&sym_id| (sym_id, synth_symbol_node(sym_id, synth, ctx)))
+        .collect();
+
     // Populate the node body.
     let sseq = SynthSequence::Regular(node.sequence.id);
     let (kind, reducer) = if node.named.is_empty() {
         let fields = node
             .tuple
             .iter()
-            .map(|&sym_id| synth_symbol_node(sym_id, synth, ctx))
+            .map(|&sym_id| sym_tys[&sym_id].clone())
             .collect();
         let reducers = node
             .tuple
@@ -934,7 +951,7 @@ fn synth_sequence_node(
         let fields = node
             .named
             .iter()
-            .map(|(name, &sym_id)| (name.clone(), synth_symbol_node(sym_id, synth, ctx)))
+            .map(|(name, &sym_id)| (name.clone(), sym_tys[&sym_id].clone()))
             .collect();
         let reducers = node
             .named
@@ -957,6 +974,7 @@ fn synth_sequence_node(
     let reducer = Reducer {
         name: format!("reduce_seq_{}", node.sequence.id),
         sequence: sseq,
+        args: sym_tys.into_iter().map(|(_, ty)| ty).collect(),
         ty: Type::Node(id),
         root: reducer,
     };
@@ -989,7 +1007,8 @@ fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context)
             ty
         }
         SymbolNodeKind::Maybe(id) => {
-            let ty = Type::Maybe(Box::new(synth_symbol_node(id, synth, ctx)));
+            let inner_ty = synth_symbol_node(id, synth, ctx);
+            let ty = Type::Maybe(Box::new(inner_ty.clone()));
 
             let seq_a = SynthSequence::Maybe(MaybeSequence::Empty, node.symbol.id);
             let seq_b = SynthSequence::Maybe(MaybeSequence::Nonempty, node.symbol.id);
@@ -1004,12 +1023,14 @@ fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context)
             synth.register_reducer(Reducer {
                 name: format!("reduce_symbol_{}_empty", node.symbol.id),
                 sequence: seq_a,
+                args: vec![],
                 ty: ty.clone(),
                 root: red_a,
             });
             synth.register_reducer(Reducer {
                 name: format!("reduce_symbol_{}_nonempty", node.symbol.id),
                 sequence: seq_b,
+                args: vec![inner_ty],
                 ty: ty.clone(),
                 root: red_b,
             });
@@ -1034,7 +1055,8 @@ fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context)
             Type::Node(id)
         }
         SymbolNodeKind::Repeat(id, _) => {
-            let ty = Type::Array(Box::new(synth_symbol_node(id, synth, ctx)));
+            let inner_ty = synth_symbol_node(id, synth, ctx);
+            let ty = Type::Array(Box::new(inner_ty.clone()));
 
             // TODO: check for allow_empty
             if true {
@@ -1047,12 +1069,14 @@ fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context)
                 synth.register_reducer(Reducer {
                     name: format!("reduce_symbol_{}_empty", node.symbol.id),
                     sequence: seq_a,
+                    args: vec![],
                     ty: ty.clone(),
                     root: red_a,
                 });
                 synth.register_reducer(Reducer {
                     name: format!("reduce_symbol_{}_nonempty", node.symbol.id),
                     sequence: seq_b,
+                    args: vec![ty.clone()],
                     ty: ty.clone(),
                     root: red_b,
                 });
@@ -1070,12 +1094,14 @@ fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context)
             synth.register_reducer(Reducer {
                 name: format!("reduce_symbol_{}_head", node.symbol.id),
                 sequence: seq_c,
+                args: vec![inner_ty.clone()],
                 ty: ty.clone(),
                 root: red_c,
             });
             synth.register_reducer(Reducer {
                 name: format!("reduce_symbol_{}_tail", node.symbol.id),
                 sequence: seq_d,
+                args: vec![ty.clone(), Type::Nil, inner_ty.clone()],
                 ty: ty.clone(),
                 root: red_d,
             });
