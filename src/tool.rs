@@ -130,6 +130,8 @@ fn main() {
     if matches.is_present("synth_ast") {
         let synth = perplex::ast_synth::AstSynth::with_grammar(&ext_grammar);
         println!("{}", synth.generate_ast());
+        println!("");
+        println!("{}", synth.generate_reducers());
         return;
     }
 
