@@ -195,7 +195,6 @@ pub struct NonterminalNode<'a> {
     nonterminal: &'a Nonterminal,
     rules: Vec<SequenceNodeId>,
     children: Children,
-    reducer: Option<Rc<ReducerNode>>,
 }
 
 /// A synthesis tree node for a sequence.
@@ -208,7 +207,6 @@ pub struct SequenceNode<'a> {
     tuple: Vec<SymbolNodeId>,
     named: IndexMap<String, SymbolNodeId>,
     children: Children,
-    reducer: Option<Rc<ReducerNode>>,
 }
 
 /// A synthesis node for a symbol.
@@ -223,7 +221,6 @@ pub struct SymbolNode<'a> {
     kind: SymbolNodeKind,
     children: Children,
     recursive: bool,
-    reducer: Option<Rc<ReducerNode>>,
 }
 
 /// The various forms a synthesis node for a symbol can take.
@@ -286,9 +283,6 @@ fn synth(grammar: &Grammar) -> AstSynth {
     if !ctx.nonterm_nodes.is_empty() {
         find_recursions(&mut ctx, NonterminalNodeId(0), &mut IndexSet::new());
     }
-    for i in 0..ctx.nonterm_nodes.len() {
-        update_reducer_nonterminal(&mut ctx, NonterminalNodeId(i));
-    }
 
     // Map the proto tree into a synthesized AST.
     let mut synth = AstSynth {
@@ -314,7 +308,6 @@ fn map_nonterminal_new<'a>(
         nonterminal: nonterminal,
         rules: vec![],
         children: Default::default(),
-        reducer: None,
     };
 
     // Spawn the nodes for each of the rules.
@@ -348,7 +341,6 @@ fn map_sequence_new<'a>(
         tuple: Vec::new(),
         named: IndexMap::new(),
         children: Default::default(),
-        reducer: None,
     };
 
     // Spawn the nodes for each of the symbols and add them to the tuple and
@@ -381,7 +373,6 @@ fn map_symbol_new<'a>(
         kind: SymbolNodeKind::None,
         children: Default::default(),
         recursive: false,
-        reducer: None,
     };
 
     match symbol.kind {
@@ -510,76 +501,6 @@ fn find_recursions(
     false
 }
 
-/// Update the reducer node for a nonterminal.
-fn update_reducer_nonterminal(ctx: &mut Context, node_id: NonterminalNodeId) {
-    trace!("update reducer for {:?}", node_id);
-    for rule in ctx[node_id].rules.clone() {
-        update_reducer_sequence(ctx, rule);
-    }
-}
-
-/// Update the reducer node for a sequence.
-fn update_reducer_sequence(ctx: &mut Context, node_id: SequenceNodeId) {
-    for sym in ctx[node_id].tuple.clone() {
-        update_reducer_symbol(ctx, sym);
-    }
-    let reducer = if ctx[node_id].named.is_empty() {
-        ReducerNode::MakeTuple(
-            ctx[node_id]
-                .tuple
-                .iter()
-                .map(|&sym_id| ctx[sym_id].reducer.clone().unwrap())
-                .collect(),
-        )
-    } else {
-        ReducerNode::MakeStruct(
-            ctx[node_id]
-                .named
-                .iter()
-                .map(|(name, &sym_id)| (name.clone(), ctx[sym_id].reducer.clone().unwrap()))
-                .collect(),
-        )
-    };
-    trace!("reducer for {:?} = {:?}", node_id, reducer);
-    ctx[node_id].reducer = Some(Rc::new(reducer));
-}
-
-/// Update the reducer node for a symbol.
-fn update_reducer_symbol(ctx: &mut Context, node_id: SymbolNodeId) {
-    let reducer = match ctx[node_id].kind.clone() {
-        SymbolNodeKind::None => return,
-        SymbolNodeKind::Terminal(_) | SymbolNodeKind::Nonterminal(_) => {
-            ReducerNode::Pick(ctx[node_id].offset)
-        }
-        SymbolNodeKind::Group(seq_id) => {
-            update_reducer_sequence(ctx, seq_id);
-            ReducerNode::Pick(ctx[node_id].offset)
-        }
-        SymbolNodeKind::Maybe(sym_id) => {
-            update_reducer_symbol(ctx, sym_id);
-            ReducerNode::Either(
-                Rc::new(ReducerNode::Some(ctx[sym_id].reducer.clone().unwrap())),
-                Rc::new(ReducerNode::None),
-            )
-        }
-        SymbolNodeKind::Choice(sym_ids) => {
-            for id in sym_ids {
-                update_reducer_symbol(ctx, id);
-            }
-            ReducerNode::Pick(ctx[node_id].offset)
-        }
-        SymbolNodeKind::Repeat(rep_id, _) => {
-            update_reducer_symbol(ctx, rep_id);
-            ReducerNode::Either(
-                Rc::new(ReducerNode::Head(ctx[rep_id].reducer.clone().unwrap())),
-                Rc::new(ReducerNode::Tail(ctx[rep_id].reducer.clone().unwrap())),
-            )
-        }
-    };
-    trace!("reducer for {:?} = {:?}", node_id, reducer);
-    ctx[node_id].reducer = Some(Rc::new(reducer));
-}
-
 /// A synthesized AST.
 ///
 /// This struct holds all the information necessary to synthesis AST nodes and
@@ -692,15 +613,75 @@ impl AstSynth {
     /// Generate the code for a single reduction function.
     pub fn generate_reducer(&self, reducer: &Reducer) -> String {
         let mut out = String::new();
-        trace!("generate reducer {:?}", reducer);
+        let mut tmp_index = 0;
         out.push_str(&format!(
             "pub fn {}() -> {} {{",
             reducer.name,
             self.generate_type(&reducer.ty)
         ));
-        out.push_str(&format!("\n    // {:?}", reducer.root));
+        // out.push_str(&format!("\n    // {:?}", reducer.root));
+        let root = self.generate_reducer_node(&reducer.root, &mut out, &mut tmp_index);
+        out.push_str(&format!("\n    {}", root));
         out.push_str("\n}");
         out
+    }
+
+    /// Generate the code for a single reducer node.
+    pub fn generate_reducer_node(
+        &self,
+        node: &ReducerNode,
+        out: &mut String,
+        tmp_index: &mut usize,
+    ) -> String {
+        match *node {
+            ReducerNode::Pick2(_sseq, offset) => format!("arg{}", offset),
+            ReducerNode::MakeTuple(node_id, ref fields) => {
+                let mut args = String::new();
+                for node in fields {
+                    if !args.is_empty() {
+                        args.push_str(", ");
+                    }
+                    args.push_str(&self.generate_reducer_node(node, out, tmp_index));
+                }
+                format!("{}({})", self[node_id].name, args)
+            }
+            ReducerNode::MakeStruct(node_id, ref fields) => {
+                let mut args = String::new();
+                for (name, node) in fields {
+                    if !args.is_empty() {
+                        args.push_str(", ");
+                    }
+                    args.push_str(name);
+                    args.push_str(": ");
+                    args.push_str(&self.generate_reducer_node(node, out, tmp_index));
+                }
+                format!("{} {{ {} }}", self[node_id].name, args)
+            }
+            ReducerNode::MakeEnum(node_id, variant_index, ref value) => format!(
+                "{}::{}({})",
+                self[node_id].name,
+                self[node_id].as_enum()[variant_index].0,
+                self.generate_reducer_node(value, out, tmp_index)
+            ),
+            ReducerNode::Some(ref node) => {
+                format!("Some({})", self.generate_reducer_node(node, out, tmp_index))
+            }
+            ReducerNode::None => "None".into(),
+            ReducerNode::Head(ref node) => {
+                format!("vec![{}]", self.generate_reducer_node(node, out, tmp_index))
+            }
+            ReducerNode::Tail(ref head, ref tail) => {
+                let head_value = self.generate_reducer_node(head, out, tmp_index);
+                let i = *tmp_index;
+                *tmp_index += 1;
+                out.push_str(&format!("\n    let mut tmp{} = {};", i, head_value));
+                let tail_value = self.generate_reducer_node(tail, out, tmp_index);
+                out.push_str(&format!("\n    tmp{}.push({});", i, tail_value));
+                format!("tmp{}", i)
+            }
+            ReducerNode::RepeatEmpty => "Vec::new()".into(),
+            _ => panic!("invalid reducer node {:?}", node),
+        }
     }
 
     /// Generate the code for a type.
@@ -750,6 +731,38 @@ pub struct Node {
     pub name: String,
     /// The kind of the node.
     pub kind: NodeKind,
+}
+
+impl Node {
+    /// Return the struct fields of this node.
+    ///
+    /// Panics if the node is not a struct.
+    pub fn as_struct(&self) -> &[(String, Type)] {
+        match self.kind {
+            NodeKind::Struct(ref x) => x,
+            _ => panic!("node is not a struct"),
+        }
+    }
+
+    /// Return the tuple fields of this node.
+    ///
+    /// Panics if the node is not a tuple.
+    pub fn as_tuple(&self) -> &[Type] {
+        match self.kind {
+            NodeKind::Tuple(ref x) => x,
+            _ => panic!("node is not a tuple"),
+        }
+    }
+
+    /// Return the enum variants of this node.
+    ///
+    /// Panics if the node is not an enum.
+    pub fn as_enum(&self) -> &[(String, Type)] {
+        match self.kind {
+            NodeKind::Enum(ref x) => x,
+            _ => panic!("node is not an enum"),
+        }
+    }
 }
 
 /// A unique node identifier.
@@ -833,13 +846,13 @@ pub enum ReducerNode {
     /// Pick one of the symbols of the sequence to be reduced.
     Pick(usize),
     Pick2(SynthSequence, usize),
-    MakeTuple(Vec<Rc<ReducerNode>>),
-    MakeStruct(Vec<(String, Rc<ReducerNode>)>),
+    MakeTuple(NodeId, Vec<Rc<ReducerNode>>),
+    MakeStruct(NodeId, Vec<(String, Rc<ReducerNode>)>),
     Either(Rc<ReducerNode>, Rc<ReducerNode>),
     Some(Rc<ReducerNode>),
     None,
     Head(Rc<ReducerNode>),
-    Tail(Rc<ReducerNode>),
+    Tail(Rc<ReducerNode>, Rc<ReducerNode>),
     RepeatEmpty,
     MakeEnum(NodeId, usize, Rc<ReducerNode>),
 }
@@ -913,7 +926,10 @@ fn synth_sequence_node(
             .iter()
             .map(|&sym_id| Rc::new(ReducerNode::Pick2(sseq, ctx[sym_id].offset)))
             .collect();
-        (NodeKind::Tuple(fields), ReducerNode::MakeTuple(reducers))
+        (
+            NodeKind::Tuple(fields),
+            ReducerNode::MakeTuple(id, reducers),
+        )
     } else {
         let fields = node
             .named
@@ -930,13 +946,16 @@ fn synth_sequence_node(
                 )
             })
             .collect();
-        (NodeKind::Struct(fields), ReducerNode::MakeStruct(reducers))
+        (
+            NodeKind::Struct(fields),
+            ReducerNode::MakeStruct(id, reducers),
+        )
     };
     synth[id].kind = kind;
 
     // Wrap up the reducer.
     let reducer = Reducer {
-        name: format!("reduce_{}", synth[id].name),
+        name: format!("reduce_seq_{}", node.sequence.id),
         sequence: sseq,
         ty: Type::Node(id),
         root: reducer,
@@ -1043,7 +1062,10 @@ fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context)
             let seq_d = SynthSequence::Repeat(RepeatSequence::Tail, node.symbol.id);
 
             let red_c = ReducerNode::Head(Rc::new(ReducerNode::Pick2(seq_c, 0)));
-            let red_d = ReducerNode::Tail(Rc::new(ReducerNode::Pick2(seq_d, 2)));
+            let red_d = ReducerNode::Tail(
+                Rc::new(ReducerNode::Pick2(seq_d, 0)),
+                Rc::new(ReducerNode::Pick2(seq_d, 2)),
+            );
 
             synth.register_reducer(Reducer {
                 name: format!("reduce_symbol_{}_head", node.symbol.id),
