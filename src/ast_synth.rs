@@ -871,13 +871,14 @@ fn synth_nonterminal_node(node_id: NonterminalNodeId, synth: &mut AstSynth, ctx:
 
     // Populate the node body.
     let mut variants = Vec::new();
-    let mut reducers = Vec::new();
     for (i, &seq_id) in node.rules.iter().enumerate() {
-        let (ty, red) = synth_sequence_node(seq_id, synth, ctx);
+        let (ty, mut reducer) = synth_sequence_node(seq_id, synth, ctx);
         variants.push((format!("variant_{}", seq_id.0), ty));
-        reducers.push(ReducerNode::MakeEnum(id, i, red));
+
+        reducer.ty = Type::Node(id);
+        reducer.root = ReducerNode::MakeEnum(id, i, Rc::new(reducer.root));
+        synth.register_reducer(reducer);
     }
-    trace!("reducers {:?}", reducers);
 
     synth[id].kind = NodeKind::Enum(variants);
 
@@ -888,7 +889,7 @@ fn synth_sequence_node(
     node_id: SequenceNodeId,
     synth: &mut AstSynth,
     ctx: &Context,
-) -> (Type, Rc<ReducerNode>) {
+) -> (Type, Reducer) {
     debug!("synth {:?}", node_id);
 
     // Create the node.
@@ -900,28 +901,48 @@ fn synth_sequence_node(
     trace!("created {:?}", id);
 
     // Populate the node body.
-    let kind = if node.named.is_empty() {
+    let sseq = SynthSequence::Regular(node.sequence.id);
+    let (kind, reducer) = if node.named.is_empty() {
         let fields = node
             .tuple
             .iter()
             .map(|&sym_id| synth_symbol_node(sym_id, synth, ctx))
             .collect();
-        NodeKind::Tuple(fields)
+        let reducers = node
+            .tuple
+            .iter()
+            .map(|&sym_id| Rc::new(ReducerNode::Pick2(sseq, ctx[sym_id].offset)))
+            .collect();
+        (NodeKind::Tuple(fields), ReducerNode::MakeTuple(reducers))
     } else {
         let fields = node
             .named
             .iter()
             .map(|(name, &sym_id)| (name.clone(), synth_symbol_node(sym_id, synth, ctx)))
             .collect();
-        NodeKind::Struct(fields)
+        let reducers = node
+            .named
+            .iter()
+            .map(|(name, &sym_id)| {
+                (
+                    name.clone(),
+                    Rc::new(ReducerNode::Pick2(sseq, ctx[sym_id].offset)),
+                )
+            })
+            .collect();
+        (NodeKind::Struct(fields), ReducerNode::MakeStruct(reducers))
     };
     synth[id].kind = kind;
-    // synth[id].reducer = node.reducer.clone().unwrap();
-    // trace!("reducer {:#?}", reducer);
-    let rid = synth.add_reducer(node.reducer.clone().unwrap());
-    synth.register_sequence_reducer(node.sequence.id, rid);
 
-    (Type::Node(id), node.reducer.clone().unwrap())
+    // Wrap up the reducer.
+    let reducer = Reducer {
+        name: format!("reduce_{}", synth[id].name),
+        sequence: sseq,
+        ty: Type::Node(id),
+        root: reducer,
+    };
+
+    (Type::Node(id), reducer)
 }
 
 fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context) -> Type {
@@ -944,7 +965,8 @@ fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context)
             }
         }
         SymbolNodeKind::Group(id) => {
-            let (ty, _red) = synth_sequence_node(id, synth, ctx);
+            let (ty, reducer) = synth_sequence_node(id, synth, ctx);
+            synth.register_reducer(reducer);
             ty
         }
         SymbolNodeKind::Maybe(id) => {
@@ -961,13 +983,13 @@ fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context)
             trace!(" - B: {:?}", red_b);
 
             synth.register_reducer(Reducer {
-                name: format!("reduce_symbol_{}_empty", node.symbol.id.0,),
+                name: format!("reduce_symbol_{}_empty", node.symbol.id),
                 sequence: seq_a,
                 ty: ty.clone(),
                 root: red_a,
             });
             synth.register_reducer(Reducer {
-                name: format!("reduce_symbol_{}_nonempty", node.symbol.id.0,),
+                name: format!("reduce_symbol_{}_nonempty", node.symbol.id),
                 sequence: seq_b,
                 ty: ty.clone(),
                 root: red_b,
@@ -1004,13 +1026,13 @@ fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context)
                 let red_b = ReducerNode::Pick2(seq_b, 0);
 
                 synth.register_reducer(Reducer {
-                    name: format!("reduce_symbol_{}_empty", node.symbol.id.0),
+                    name: format!("reduce_symbol_{}_empty", node.symbol.id),
                     sequence: seq_a,
                     ty: ty.clone(),
                     root: red_a,
                 });
                 synth.register_reducer(Reducer {
-                    name: format!("reduce_symbol_{}_nonempty", node.symbol.id.0),
+                    name: format!("reduce_symbol_{}_nonempty", node.symbol.id),
                     sequence: seq_b,
                     ty: ty.clone(),
                     root: red_b,
@@ -1024,13 +1046,13 @@ fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context)
             let red_d = ReducerNode::Tail(Rc::new(ReducerNode::Pick2(seq_d, 2)));
 
             synth.register_reducer(Reducer {
-                name: format!("reduce_symbol_{}_head", node.symbol.id.0),
+                name: format!("reduce_symbol_{}_head", node.symbol.id),
                 sequence: seq_c,
                 ty: ty.clone(),
                 root: red_c,
             });
             synth.register_reducer(Reducer {
-                name: format!("reduce_symbol_{}_tail", node.symbol.id.0),
+                name: format!("reduce_symbol_{}_tail", node.symbol.id),
                 sequence: seq_d,
                 ty: ty.clone(),
                 root: red_d,
