@@ -11,6 +11,7 @@ use indexmap::{IndexMap, IndexSet};
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
+use std::rc::Rc;
 use std::usize;
 
 use ext::{
@@ -192,13 +193,7 @@ fn synth(grammar: &Grammar) -> AstSynth {
 
     // Create nodes for each of the nonterminals.
     for nt in grammar.nonterminals() {
-        let mut node = NonterminalNode {
-            nonterminal: nt,
-            rules: vec![],
-            children: Default::default(),
-        };
-        map_nonterminal_new(&mut ctx, &mut node);
-        let _id = ctx.add_nonterminal_node(node);
+        map_nonterminal_new(&mut ctx, nt);
     }
     debug!("spawned {} nonterminal nodes", ctx.nonterm_nodes.len());
     debug!("spawned {} sequence nodes", ctx.seq_nodes.len());
@@ -216,6 +211,7 @@ fn synth(grammar: &Grammar) -> AstSynth {
     // Map the proto tree into a synthesized AST.
     let mut synth = AstSynth {
         nodes: Vec::new(),
+        reducers: Vec::new(),
         nonterm_types: HashMap::new(),
     };
     for i in 0..ctx.nonterm_nodes.len() {
@@ -243,7 +239,7 @@ pub struct NonterminalNode<'a> {
     nonterminal: &'a Nonterminal,
     rules: Vec<SequenceNodeId>,
     children: Children,
-    // TODO: Add reduction function details.
+    reducer: Option<ReducerNode>,
 }
 
 /// A synthesis tree node for a sequence.
@@ -256,7 +252,7 @@ pub struct SequenceNode<'a> {
     tuple: Vec<SymbolNodeId>,
     named: IndexMap<String, SymbolNodeId>,
     children: Children,
-    // TODO: Add reduction function details.
+    reducer: Option<ReducerNode>,
 }
 
 /// A synthesis node for a symbol.
@@ -271,6 +267,7 @@ pub struct SymbolNode<'a> {
     kind: SymbolNodeKind,
     children: Children,
     recursive: bool,
+    reducer: Option<ReducerNode>,
 }
 
 /// The various forms a synthesis node for a symbol can take.
@@ -314,143 +311,119 @@ pub struct SequenceNodeId(pub usize);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SymbolNodeId(pub usize);
 
-fn map_nonterminal_new<'a>(ctx: &mut Context<'a>, node: &mut NonterminalNode<'a>) {
-    trace!("mapping nonterminal {:?}", node.nonterminal.id);
+fn map_nonterminal_new<'a>(
+    ctx: &mut Context<'a>,
+    nonterminal: &'a Nonterminal,
+) -> NonterminalNodeId {
+    trace!("mapping nonterminal {:?}", nonterminal.id);
+    let mut node = NonterminalNode {
+        nonterminal: nonterminal,
+        rules: vec![],
+        children: Default::default(),
+        reducer: None,
+    };
 
     // Spawn the nodes for each of the rules.
     for rule in node.nonterminal.rules() {
-        let mut seqnode = SequenceNode {
-            nonterminal: node.nonterminal,
-            rule: rule,
-            parent: None,
-            sequence: &rule.rhs,
-            tuple: Vec::new(),
-            named: IndexMap::new(),
-            children: Default::default(),
-        };
-        map_sequence_new(ctx, &mut seqnode);
-        let id = ctx.add_sequence_node(seqnode);
-        node.rules.push(id);
+        node.rules.push(map_sequence_new(
+            ctx,
+            node.nonterminal,
+            rule,
+            None,
+            &rule.rhs,
+        ));
     }
+
+    ctx.add_nonterminal_node(node)
 }
 
-fn map_sequence_new<'a>(ctx: &mut Context<'a>, node: &mut SequenceNode<'a>) {
-    trace!("mapping sequence {:?}", node.sequence.id);
+fn map_sequence_new<'a>(
+    ctx: &mut Context<'a>,
+    nonterm: &'a Nonterminal,
+    rule: &'a Rule,
+    parent: Option<&'a Sequence>,
+    sequence: &'a Sequence,
+) -> SequenceNodeId {
+    trace!("mapping sequence {:?}", sequence.id);
 
-    // Spawn the nodes for each of the symbols.
+    let mut node = SequenceNode {
+        nonterminal: nonterm,
+        rule: rule,
+        parent: parent,
+        sequence: sequence,
+        tuple: Vec::new(),
+        named: IndexMap::new(),
+        children: Default::default(),
+        reducer: None,
+    };
+
+    // Spawn the nodes for each of the symbols and add them to the tuple and
+    // named fields if appropriate.
     for (offset, sym) in node.sequence.symbols.iter().enumerate() {
-        let mut symnode = SymbolNode {
-            nonterminal: node.nonterminal,
-            rule: node.rule,
-            parent: node.parent,
-            sequence: node.sequence,
-            offset: offset,
-            symbol: sym,
-            kind: SymbolNodeKind::None,
-            children: Default::default(),
-            recursive: false,
-        };
-        map_symbol_new(ctx, &mut symnode);
-        let id = ctx.add_symbol_node(symnode);
-
-        // Add this symbol to the tuple and named fields if appropriate.
+        let id = map_symbol_new(ctx, &node, offset, sym);
         node.tuple.push(id);
         if let Some(ref name) = sym.name {
             node.named.insert(name.clone(), id);
         }
     }
+
+    ctx.add_sequence_node(node)
 }
 
-fn map_symbol_new<'a>(ctx: &mut Context<'a>, node: &mut SymbolNode<'a>) {
-    trace!("mapping symbol {:?}.{}", node.sequence.id, node.offset);
-    match node.symbol.kind {
+fn map_symbol_new<'a>(
+    ctx: &mut Context<'a>,
+    seq_node: &SequenceNode<'a>,
+    offset: usize,
+    symbol: &'a Symbol,
+) -> SymbolNodeId {
+    trace!("mapping symbol {:?}.{}", seq_node.sequence.id, offset);
+    let mut node = SymbolNode {
+        nonterminal: seq_node.nonterminal,
+        rule: seq_node.rule,
+        parent: seq_node.parent,
+        sequence: seq_node.sequence,
+        offset: offset,
+        symbol: symbol,
+        kind: SymbolNodeKind::None,
+        children: Default::default(),
+        recursive: false,
+        reducer: Some(ReducerNode::Pick(offset)),
+    };
+
+    match symbol.kind {
         SymbolKind::Terminal(id) => node.kind = SymbolNodeKind::Terminal(id),
         SymbolKind::Nonterminal(id) => node.kind = SymbolNodeKind::Nonterminal(id),
         SymbolKind::Group(ref g) => {
-            let mut seqnode = SequenceNode {
-                nonterminal: node.nonterminal,
-                rule: node.rule,
-                parent: Some(node.sequence),
-                sequence: g,
-                tuple: Vec::new(),
-                named: IndexMap::new(),
-                children: Default::default(),
-            };
-            map_sequence_new(ctx, &mut seqnode);
-            let id = ctx.add_sequence_node(seqnode);
-            node.kind = SymbolNodeKind::Group(id);
+            node.kind = SymbolNodeKind::Group(map_sequence_new(
+                ctx,
+                node.nonterminal,
+                node.rule,
+                Some(node.sequence),
+                g,
+            ));
         }
         SymbolKind::Maybe(ref sym) => {
-            let mut symnode = SymbolNode {
-                nonterminal: node.nonterminal,
-                rule: node.rule,
-                parent: node.parent,
-                sequence: node.sequence,
-                offset: usize::MAX,
-                symbol: sym,
-                kind: SymbolNodeKind::None,
-                children: Default::default(),
-                recursive: false,
-            };
-            map_symbol_new(ctx, &mut symnode);
-            let id = ctx.add_symbol_node(symnode);
-            node.kind = SymbolNodeKind::Maybe(id);
+            node.kind = SymbolNodeKind::Maybe(map_symbol_new(ctx, seq_node, usize::MAX, sym));
         }
         SymbolKind::Choice(ref syms) => {
             let mut ids = vec![];
             for sym in syms {
-                let mut symnode = SymbolNode {
-                    nonterminal: node.nonterminal,
-                    rule: node.rule,
-                    parent: node.parent,
-                    sequence: node.sequence,
-                    offset: usize::MAX,
-                    symbol: sym,
-                    kind: SymbolNodeKind::None,
-                    children: Default::default(),
-                    recursive: false,
-                };
-                map_symbol_new(ctx, &mut symnode);
-                ids.push(ctx.add_symbol_node(symnode));
+                ids.push(map_symbol_new(ctx, seq_node, usize::MAX, sym));
             }
             node.kind = SymbolNodeKind::Choice(ids);
         }
         SymbolKind::Repeat(ref rep, ref sep, _) => {
-            let rep_id = {
-                let mut symnode = SymbolNode {
-                    nonterminal: node.nonterminal,
-                    rule: node.rule,
-                    parent: node.parent,
-                    sequence: node.sequence,
-                    offset: usize::MAX,
-                    symbol: rep,
-                    kind: SymbolNodeKind::None,
-                    children: Default::default(),
-                    recursive: false,
-                };
-                map_symbol_new(ctx, &mut symnode);
-                ctx.add_symbol_node(symnode)
-            };
+            let rep_id = map_symbol_new(ctx, seq_node, usize::MAX, rep);
             let sep_id = if let Some(ref sep) = *sep {
-                let mut symnode = SymbolNode {
-                    nonterminal: node.nonterminal,
-                    rule: node.rule,
-                    parent: node.parent,
-                    sequence: node.sequence,
-                    offset: usize::MAX,
-                    symbol: sep,
-                    kind: SymbolNodeKind::None,
-                    children: Default::default(),
-                    recursive: false,
-                };
-                map_symbol_new(ctx, &mut symnode);
-                Some(ctx.add_symbol_node(symnode))
+                Some(map_symbol_new(ctx, seq_node, usize::MAX, sep))
             } else {
                 None
             };
             node.kind = SymbolNodeKind::Repeat(rep_id, sep_id);
         }
     }
+
+    ctx.add_symbol_node(node)
 }
 
 fn gather_children_nonterminal(ctx: &mut Context, nt: NonterminalNodeId) {
@@ -550,6 +523,7 @@ fn find_recursions(
 #[derive(Debug)]
 pub struct AstSynth {
     nodes: Vec<Node>,
+    reducers: Vec<Reducer>,
     nonterm_types: HashMap<NonterminalId, Type>,
 }
 
@@ -676,6 +650,20 @@ pub enum NodeKind {
     Enum(Vec<(String, Type)>),
 }
 
+/// A synthesized reduction function.
+#[derive(Debug)]
+pub struct Reducer {}
+
+/// A step in a reduction function.
+#[allow(missing_docs)]
+#[derive(Debug)]
+pub enum ReducerNode {
+    /// Pick one of the symbols of the sequence to be reduced.
+    Pick(usize),
+    MakeTuple(Vec<Rc<ReducerNode>>),
+    MakeStruct(Vec<(String, Rc<ReducerNode>)>),
+}
+
 /// Synthesize the node corresponding to a nonterminal.
 fn synth_nonterminal_node(node_id: NonterminalNodeId, synth: &mut AstSynth, ctx: &Context) -> Type {
     // Don't synthesize the node if already done so.
@@ -708,6 +696,9 @@ fn synth_nonterminal_node(node_id: NonterminalNodeId, synth: &mut AstSynth, ctx:
             )
         })
         .collect();
+
+    // TODO: Add the appropriate reduction steps to each of the variants.
+
     synth[id].kind = NodeKind::Enum(variants);
 
     Type::Node(id)
@@ -725,14 +716,20 @@ fn synth_sequence_node(node_id: SequenceNodeId, synth: &mut AstSynth, ctx: &Cont
     trace!("created {:?}", id);
 
     // Populate the node body.
-    let kind = if node.named.is_empty() {
+    let (kind, reducer) = if node.named.is_empty() {
         trace!("impl as tuple {:?}", id);
         let fields = node
             .tuple
             .iter()
             .map(|&sym_id| synth_symbol_node(sym_id, synth, ctx))
             .collect();
-        NodeKind::Tuple(fields)
+        let reducer = ReducerNode::MakeTuple(
+            node.tuple
+                .iter()
+                .map(|&sym_id| Rc::new(ReducerNode::Pick(ctx[sym_id].offset)))
+                .collect(),
+        );
+        (NodeKind::Tuple(fields), reducer)
     } else {
         trace!("impl as struct {:?}", id);
         let fields = node
@@ -740,9 +737,18 @@ fn synth_sequence_node(node_id: SequenceNodeId, synth: &mut AstSynth, ctx: &Cont
             .iter()
             .map(|(name, &sym_id)| (name.clone(), synth_symbol_node(sym_id, synth, ctx)))
             .collect();
-        NodeKind::Struct(fields)
+        let reducer = ReducerNode::MakeStruct(
+            node.named
+                .iter()
+                .map(|(name, &sym_id)| {
+                    (name.clone(), Rc::new(ReducerNode::Pick(ctx[sym_id].offset)))
+                })
+                .collect(),
+        );
+        (NodeKind::Struct(fields), reducer)
     };
     synth[id].kind = kind;
+    trace!("reducer {:#?}", reducer);
 
     Type::Node(id)
 }
