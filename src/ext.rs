@@ -2,8 +2,8 @@
 
 //! Data structures representing an extended grammar.
 
-use std::fmt;
 use std::collections::HashMap;
+use std::fmt;
 use std::ops::{Index, IndexMut};
 use std::slice::{Iter, IterMut};
 
@@ -13,6 +13,7 @@ use Pretty;
 #[derive(Debug, Clone)]
 pub struct Grammar {
     next_sequence_id: SequenceId,
+    next_symbol_id: SymbolId,
     terms: Vec<Terminal>,
     term_names: HashMap<String, TerminalId>,
     nonterms: Vec<Nonterminal>,
@@ -24,6 +25,7 @@ impl Grammar {
     pub fn new() -> Grammar {
         Grammar {
             next_sequence_id: SequenceId(0),
+            next_symbol_id: SymbolId(0),
             terms: Vec::new(),
             term_names: HashMap::new(),
             nonterms: Vec::new(),
@@ -75,7 +77,7 @@ impl Grammar {
 
     /// Add a rule to the grammar.
     pub fn add_rule(&mut self, lhs: NonterminalId, mut rhs: Sequence) -> RuleId {
-        rhs.assign_id(&mut self.next_sequence_id);
+        rhs.assign_id(&mut self.next_sequence_id, &mut self.next_symbol_id);
         let rules = &mut self[lhs].rules;
         let id = RuleId(lhs, rules.len());
         rules.push(Rule { lhs: lhs, rhs: rhs });
@@ -426,11 +428,11 @@ impl Sequence {
         Pretty::new(grammar, self)
     }
 
-    fn assign_id(&mut self, next_id: &mut SequenceId) {
-        self.id = *next_id;
-        next_id.0 += 1;
+    fn assign_id(&mut self, next_seq_id: &mut SequenceId, next_sym_id: &mut SymbolId) {
+        self.id = *next_seq_id;
+        next_seq_id.0 += 1;
         for sym in &mut self.symbols {
-            sym.assign_id(next_id);
+            sym.assign_id(next_seq_id, next_sym_id);
         }
     }
 }
@@ -508,7 +510,8 @@ impl SequenceBuilder {
 
     /// Make the last symbol optional.
     pub fn maybe(mut self) -> Self {
-        let s = self.seq
+        let s = self
+            .seq
             .symbols
             .pop()
             .expect("no symbol that can be made optional");
@@ -526,7 +529,8 @@ impl SequenceBuilder {
 
     /// Repeat the last symbol.
     pub fn repeat(mut self, allow_empty: bool) -> Self {
-        let s = self.seq
+        let s = self
+            .seq
             .symbols
             .pop()
             .expect("no symbol that can be repeated");
@@ -536,7 +540,8 @@ impl SequenceBuilder {
 
     /// Repeat the last symbol separated by another symbol.
     pub fn repeat_separated(mut self, separator: Symbol, allow_empty: bool) -> Self {
-        let s = self.seq
+        let s = self
+            .seq
             .symbols
             .pop()
             .expect("no symbol that can be repeated");
@@ -567,6 +572,8 @@ impl SequenceBuilder {
 /// A symbol.
 #[derive(Debug, Clone)]
 pub struct Symbol {
+    /// The unique id of this symbol.
+    pub id: SymbolId,
     /// The symbol kind. Contains the actual data.
     pub kind: SymbolKind,
     /// The name of the symbol.
@@ -579,6 +586,7 @@ impl Symbol {
     /// Create a new symbol.
     pub fn new(kind: SymbolKind) -> Symbol {
         Symbol {
+            id: ORPHAN_SYMBOL,
             kind: kind,
             name: None,
             ignore: false,
@@ -624,19 +632,21 @@ impl Symbol {
         Pretty::new(grammar, self)
     }
 
-    fn assign_id(&mut self, next_id: &mut SequenceId) {
+    fn assign_id(&mut self, next_seq_id: &mut SequenceId, next_sym_id: &mut SymbolId) {
+        self.id = *next_sym_id;
+        next_sym_id.0 += 1;
         match self.kind {
             SymbolKind::Terminal(..) => (),
             SymbolKind::Nonterminal(..) => (),
-            SymbolKind::Group(ref mut seq) => seq.assign_id(next_id),
-            SymbolKind::Maybe(ref mut sym) => sym.assign_id(next_id),
+            SymbolKind::Group(ref mut seq) => seq.assign_id(next_seq_id, next_sym_id),
+            SymbolKind::Maybe(ref mut sym) => sym.assign_id(next_seq_id, next_sym_id),
             SymbolKind::Choice(ref mut syms) => for sym in syms {
-                sym.assign_id(next_id)
+                sym.assign_id(next_seq_id, next_sym_id)
             },
             SymbolKind::Repeat(ref mut repeated, ref mut separator, _) => {
-                repeated.assign_id(next_id);
+                repeated.assign_id(next_seq_id, next_sym_id);
                 if let Some(ref mut separator) = *separator {
-                    separator.assign_id(next_id);
+                    separator.assign_id(next_seq_id, next_sym_id);
                 }
             }
         }
@@ -710,6 +720,25 @@ impl<'a> fmt::Display for Pretty<&'a Grammar, &'a SymbolKind> {
         }
     }
 }
+
+/// A unique symbol identifier.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SymbolId(pub usize);
+
+impl fmt::Display for SymbolId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "y{}", self.0)
+    }
+}
+
+impl fmt::Debug for SymbolId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+/// The id of a symbol that has not been added to a grammar.
+pub const ORPHAN_SYMBOL: SymbolId = SymbolId(::std::usize::MAX);
 
 #[cfg(test)]
 mod tests {
