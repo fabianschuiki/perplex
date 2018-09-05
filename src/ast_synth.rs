@@ -264,12 +264,13 @@ pub struct SequenceNodeId(pub usize);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SymbolNodeId(pub usize);
 
-fn synth(grammar: &Grammar) -> AstSynth {
+/// Map a grammar to a synthesized AST.
+fn map_grammar(grammar: &Grammar) -> AstSynth {
     let mut ctx = Context::new(grammar);
 
     // Create nodes for each of the nonterminals.
     for nt in grammar.nonterminals() {
-        map_nonterminal_new(&mut ctx, nt);
+        map_nonterminal(&mut ctx, nt);
     }
     debug!("spawned {} nonterminal nodes", ctx.nonterm_nodes.len());
     debug!("spawned {} sequence nodes", ctx.seq_nodes.len());
@@ -299,10 +300,8 @@ fn synth(grammar: &Grammar) -> AstSynth {
     synth
 }
 
-fn map_nonterminal_new<'a>(
-    ctx: &mut Context<'a>,
-    nonterminal: &'a Nonterminal,
-) -> NonterminalNodeId {
+/// Map a nonterminal to a nonterminal node.
+fn map_nonterminal<'a>(ctx: &mut Context<'a>, nonterminal: &'a Nonterminal) -> NonterminalNodeId {
     trace!("mapping nonterminal {:?}", nonterminal.id);
     let mut node = NonterminalNode {
         nonterminal: nonterminal,
@@ -312,19 +311,15 @@ fn map_nonterminal_new<'a>(
 
     // Spawn the nodes for each of the rules.
     for rule in node.nonterminal.rules() {
-        node.rules.push(map_sequence_new(
-            ctx,
-            node.nonterminal,
-            rule,
-            None,
-            &rule.rhs,
-        ));
+        node.rules
+            .push(map_sequence(ctx, node.nonterminal, rule, None, &rule.rhs));
     }
 
     ctx.add_nonterminal_node(node)
 }
 
-fn map_sequence_new<'a>(
+/// Map a sequence to a sequence node.
+fn map_sequence<'a>(
     ctx: &mut Context<'a>,
     nonterm: &'a Nonterminal,
     rule: &'a Rule,
@@ -346,7 +341,7 @@ fn map_sequence_new<'a>(
     // Spawn the nodes for each of the symbols and add them to the tuple and
     // named fields if appropriate.
     for (offset, sym) in node.sequence.symbols.iter().enumerate() {
-        let id = map_symbol_new(ctx, &node, offset, sym);
+        let id = map_symbol(ctx, &node, offset, sym);
         node.tuple.push(id);
         if let Some(ref name) = sym.name {
             node.named.insert(name.clone(), id);
@@ -356,7 +351,8 @@ fn map_sequence_new<'a>(
     ctx.add_sequence_node(node)
 }
 
-fn map_symbol_new<'a>(
+/// Map a symbol to a symbol node.
+fn map_symbol<'a>(
     ctx: &mut Context<'a>,
     seq_node: &SequenceNode<'a>,
     offset: usize,
@@ -379,7 +375,7 @@ fn map_symbol_new<'a>(
         SymbolKind::Terminal(id) => node.kind = SymbolNodeKind::Terminal(id),
         SymbolKind::Nonterminal(id) => node.kind = SymbolNodeKind::Nonterminal(id),
         SymbolKind::Group(ref g) => {
-            node.kind = SymbolNodeKind::Group(map_sequence_new(
+            node.kind = SymbolNodeKind::Group(map_sequence(
                 ctx,
                 node.nonterminal,
                 node.rule,
@@ -388,19 +384,19 @@ fn map_symbol_new<'a>(
             ));
         }
         SymbolKind::Maybe(ref sym) => {
-            node.kind = SymbolNodeKind::Maybe(map_symbol_new(ctx, seq_node, usize::MAX, sym));
+            node.kind = SymbolNodeKind::Maybe(map_symbol(ctx, seq_node, usize::MAX, sym));
         }
         SymbolKind::Choice(ref syms) => {
             let mut ids = vec![];
             for sym in syms {
-                ids.push(map_symbol_new(ctx, seq_node, usize::MAX, sym));
+                ids.push(map_symbol(ctx, seq_node, usize::MAX, sym));
             }
             node.kind = SymbolNodeKind::Choice(ids);
         }
         SymbolKind::Repeat(ref rep, ref sep, _) => {
-            let rep_id = map_symbol_new(ctx, seq_node, usize::MAX, rep);
+            let rep_id = map_symbol(ctx, seq_node, usize::MAX, rep);
             let sep_id = if let Some(ref sep) = *sep {
-                Some(map_symbol_new(ctx, seq_node, usize::MAX, sep))
+                Some(map_symbol(ctx, seq_node, usize::MAX, sep))
             } else {
                 None
             };
@@ -517,7 +513,7 @@ pub struct AstSynth {
 impl AstSynth {
     /// Synthesize an AST for a grammar.
     pub fn with_grammar(grammar: &Grammar) -> AstSynth {
-        synth(grammar)
+        map_grammar(grammar)
     }
 
     /// Add a node to the synthesized tree and return its id.
