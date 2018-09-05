@@ -557,10 +557,12 @@ impl AstSynth {
     pub fn generate_ast(&self) -> String {
         let mut out = String::new();
         for node in &self.nodes {
-            if !out.is_empty() {
-                out.push_str("\n\n");
+            if !node.suppress {
+                if !out.is_empty() {
+                    out.push_str("\n\n");
+                }
+                out.push_str(&self.generate_ast_node(node));
             }
-            out.push_str(&self.generate_ast_node(node));
         }
         out
     }
@@ -735,6 +737,9 @@ pub struct Node {
     pub name: String,
     /// The kind of the node.
     pub kind: NodeKind,
+    /// Whether the node should be suppressed in the output. This happens if the
+    /// rule that generated the node has an external type defined.
+    pub suppress: bool,
 }
 
 impl Node {
@@ -880,10 +885,12 @@ fn synth_nonterminal_node(node_id: NonterminalNodeId, synth: &mut AstSynth, ctx:
 
     // Create the node.
     let node = &ctx[node_id];
+    let suppress = node.nonterminal.extern_type.is_some();
     debug!("synth {:?} ({})", node_id, node.nonterminal.name);
     let id = synth.add_node(Node {
         name: format!("nonterm_{}", node.nonterminal.name),
         kind: NodeKind::Enum(Vec::new()),
+        suppress: suppress,
     });
     trace!("created {:?}", id);
     synth.register_nonterminal_type(node.nonterminal.id, Type::Node(id));
@@ -893,10 +900,11 @@ fn synth_nonterminal_node(node_id: NonterminalNodeId, synth: &mut AstSynth, ctx:
     for (i, &seq_id) in node.rules.iter().enumerate() {
         let (ty, mut reducer) = synth_sequence_node(seq_id, synth, ctx);
         variants.push((format!("variant_{}", seq_id.0), ty));
-
-        reducer.ty = Type::Node(id);
-        reducer.root = ReducerNode::MakeEnum(id, i, Rc::new(reducer.root));
-        synth.register_reducer(reducer);
+        if !suppress {
+            reducer.ty = Type::Node(id);
+            reducer.root = ReducerNode::MakeEnum(id, i, Rc::new(reducer.root));
+            synth.register_reducer(reducer);
+        }
     }
 
     synth[id].kind = NodeKind::Enum(variants);
@@ -916,6 +924,7 @@ fn synth_sequence_node(
     let id = synth.add_node(Node {
         name: format!("seq_{}", node.sequence.id),
         kind: NodeKind::Enum(Vec::new()),
+        suppress: node.parent.is_none() && node.nonterminal.extern_type.is_some(),
     });
     trace!("created {:?}", id);
 
@@ -1037,6 +1046,7 @@ fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context)
             let id = synth.add_node(Node {
                 name: format!("seq_{}_symbol_{}", node.sequence.id, node.offset),
                 kind: NodeKind::Enum(Vec::new()),
+                suppress: false,
             });
             let variants = ids
                 .iter()
