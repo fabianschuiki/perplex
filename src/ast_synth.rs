@@ -900,7 +900,7 @@ fn synth_nonterminal_node(node_id: NonterminalNodeId, synth: &mut AstSynth, ctx:
     for (i, &seq_id) in node.rules.iter().enumerate() {
         let (ty, mut reducer) = synth_sequence_node(seq_id, synth, ctx);
         variants.push((format!("variant_{}", seq_id.0), ty));
-        if !suppress {
+        if !suppress && ctx[seq_id].sequence.extern_reducer.is_none() {
             reducer.ty = Type::Node(id);
             reducer.root = ReducerNode::MakeEnum(id, i, Rc::new(reducer.root));
             synth.register_reducer(reducer);
