@@ -421,6 +421,8 @@ pub struct Sequence {
     pub id: SequenceId,
     /// The symbols of this sequence.
     pub symbols: Vec<Symbol>,
+    /// The externally defined reduction function that reduces this sequence.
+    pub extern_reducer: Option<String>,
 }
 
 impl Sequence {
@@ -429,6 +431,7 @@ impl Sequence {
         Sequence {
             id: ORPHAN_SEQUENCE,
             symbols: symbols,
+            extern_reducer: None,
         }
     }
 
@@ -569,6 +572,12 @@ impl SequenceBuilder {
     /// Mark the last symbol as to be ignored.
     pub fn ignore(mut self) -> Self {
         self.seq.symbols.last_mut().unwrap().ignore = true;
+        self
+    }
+
+    /// Specify the sequence's externally defined reduction function.
+    pub fn extern_reducer(mut self, v: String) -> Self {
+        self.seq.extern_reducer = Some(v);
         self
     }
 

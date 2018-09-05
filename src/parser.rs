@@ -603,11 +603,10 @@ pub fn make_ext_grammar(desc: &ast::Desc) -> ext::Grammar {
     for d in &desc.rules {
         let id = rule_map[&d.name];
         for v in &d.variants {
-            grammar.make_rule(id, |s| insert_ext_sequence(s, &v.seq, &symbol_map));
-            // let _rule_id = insert_ext_sequence(id, &v.seq, &symbol_map, &mut grammar);
-            // if let Some(rf) = v.reduction_function.clone() {
-            //     backend.add_reduction_function(rule_id, rf);
-            // }
+            let rule_id = grammar.make_rule(id, |s| insert_ext_sequence(s, &v.seq, &symbol_map));
+            if let Some(rf) = v.reduction_function.clone() {
+                grammar[rule_id].rhs.extern_reducer = Some(rf);
+            }
         }
     }
 
