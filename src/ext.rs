@@ -265,6 +265,8 @@ pub struct Nonterminal {
     pub name: String,
     /// The human-readable name of the nonterminal.
     pub nice_name: Option<String>,
+    /// The externally defined type this nonterminal yields.
+    pub extern_type: Option<String>,
     /// The rules of this nonterminal.
     rules: Vec<Rule>,
 }
@@ -276,6 +278,7 @@ impl Nonterminal {
             id: ORPHAN_NONTERMINAL,
             name: name.into(),
             nice_name: None,
+            extern_type: None,
             rules: Vec::new(),
         }
     }
@@ -321,6 +324,12 @@ impl NonterminalBuilder {
     /// Specify the human-readable name of the nonterminal.
     pub fn nice_name(mut self, v: String) -> Self {
         self.nonterm.nice_name = Some(v);
+        self
+    }
+
+    /// Specify the externally defined type of the nonterminal.
+    pub fn external_type(mut self, v: String) -> Self {
+        self.nonterm.extern_type = Some(v);
         self
     }
 

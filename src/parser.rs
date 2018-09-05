@@ -4,13 +4,13 @@
 
 #![allow(unused_variables)]
 
-use std::str;
 use std::collections::HashMap;
+use std::str;
 
-use ext;
-use lexer::{Keyword, Lexer, Token};
-use grammar::{Grammar, NonterminalId, Rule, RuleId, Symbol, TerminalId, END};
 use backend::Backend;
+use ext;
+use grammar::{Grammar, NonterminalId, Rule, RuleId, Symbol, TerminalId, END};
+use lexer::{Keyword, Lexer, Token};
 use perplex_runtime::Parser;
 
 type Terminal = Option<Token>;
@@ -19,8 +19,8 @@ include!("parser_states.rs");
 
 /// The abstract syntax tree of a grammar description.
 pub mod ast {
-    use std::iter::{once, repeat};
     use std::fmt;
+    use std::iter::{once, repeat};
 
     /// The root node of a grammar description.
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -577,11 +577,12 @@ pub fn make_ext_grammar(desc: &ast::Desc) -> ext::Grammar {
         };
     }
     for d in &desc.rules {
-        let id = grammar.make_nonterminal(d.name.clone()).build(&mut grammar);
+        let mut b = grammar.make_nonterminal(d.name.clone());
+        if let Some(reduce_type) = d.reduce_type.clone() {
+            b = b.external_type(reduce_type);
+        }
+        let id = b.build(&mut grammar);
         rule_map.insert(d.name.clone(), id);
-        // if let Some(reduce_type) = d.reduce_type.clone() {
-        //     backend.add_nonterminal(id, reduce_type);
-        // }
     }
 
     // Create a unified symbol lookup table.
@@ -679,12 +680,10 @@ mod tests {
         assert_eq!(
             res,
             ast::Desc {
-                tokens: vec![
-                    ast::TokenDecl {
-                        name: ast::TokenName::Name("hello".into()),
-                        pattern: None,
-                    },
-                ],
+                tokens: vec![ast::TokenDecl {
+                    name: ast::TokenName::Name("hello".into()),
+                    pattern: None,
+                }],
                 rules: vec![],
             }
         );
