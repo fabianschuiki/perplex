@@ -267,6 +267,8 @@ pub struct Nonterminal {
     pub nice_name: Option<String>,
     /// The externally defined type this nonterminal yields.
     pub extern_type: Option<String>,
+    /// The name the synthesized AST node for this nonterminal should have.
+    pub synth_name: Option<String>,
     /// The rules of this nonterminal.
     rules: Vec<Rule>,
 }
@@ -279,6 +281,7 @@ impl Nonterminal {
             name: name.into(),
             nice_name: None,
             extern_type: None,
+            synth_name: None,
             rules: Vec::new(),
         }
     }
@@ -330,6 +333,12 @@ impl NonterminalBuilder {
     /// Specify the externally defined type of the nonterminal.
     pub fn external_type(mut self, v: String) -> Self {
         self.nonterm.extern_type = Some(v);
+        self
+    }
+
+    /// Specify the synthesized AST node name.
+    pub fn synth_name(mut self, v: String) -> Self {
+        self.nonterm.synth_name = Some(v);
         self
     }
 
@@ -423,6 +432,8 @@ pub struct Sequence {
     pub symbols: Vec<Symbol>,
     /// The externally defined reduction function that reduces this sequence.
     pub extern_reducer: Option<String>,
+    /// The name the synthesized AST node for this nonterminal should have.
+    pub synth_name: Option<String>,
 }
 
 impl Sequence {
@@ -432,6 +443,7 @@ impl Sequence {
             id: ORPHAN_SEQUENCE,
             symbols: symbols,
             extern_reducer: None,
+            synth_name: None,
         }
     }
 
@@ -578,6 +590,12 @@ impl SequenceBuilder {
     /// Specify the sequence's externally defined reduction function.
     pub fn extern_reducer(mut self, v: String) -> Self {
         self.seq.extern_reducer = Some(v);
+        self
+    }
+
+    /// Specify the synthesized AST node name.
+    pub fn synth_name(mut self, v: String) -> Self {
+        self.seq.synth_name = Some(v);
         self
     }
 

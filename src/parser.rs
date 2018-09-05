@@ -65,6 +65,8 @@ pub mod ast {
         pub name: String,
         /// The type of the nonterminal a reduction of this rule produces.
         pub reduce_type: Option<String>,
+        /// The synthesized name of the rule.
+        pub synth_name: Option<String>,
         /// The different variants of the rule.
         pub variants: Vec<Variant>,
     }
@@ -270,6 +272,8 @@ fn reduce_rule_decl_a(
     name: Option<Token>,
     _rarrow: Option<Token>,
     reduce_type: Option<Token>,
+    _comma: Option<Token>,
+    synth_name: Option<Token>,
     _lbrace: Option<Token>,
     list: Vec<ast::Variant>,
     rbrace: Option<Token>,
@@ -277,11 +281,44 @@ fn reduce_rule_decl_a(
     ast::RuleDecl {
         name: name.unwrap().unwrap_ident(),
         reduce_type: Some(reduce_type.unwrap().unwrap_code()),
+        synth_name: Some(synth_name.unwrap().unwrap_ident()),
         variants: list,
     }
 }
 
 fn reduce_rule_decl_b(
+    name: Option<Token>,
+    _rarrow: Option<Token>,
+    synth_name: Option<Token>,
+    _lbrace: Option<Token>,
+    list: Vec<ast::Variant>,
+    rbrace: Option<Token>,
+) -> ast::RuleDecl {
+    ast::RuleDecl {
+        name: name.unwrap().unwrap_ident(),
+        reduce_type: None,
+        synth_name: Some(synth_name.unwrap().unwrap_ident()),
+        variants: list,
+    }
+}
+
+fn reduce_rule_decl_c(
+    name: Option<Token>,
+    _rarrow: Option<Token>,
+    reduce_type: Option<Token>,
+    _lbrace: Option<Token>,
+    list: Vec<ast::Variant>,
+    rbrace: Option<Token>,
+) -> ast::RuleDecl {
+    ast::RuleDecl {
+        name: name.unwrap().unwrap_ident(),
+        reduce_type: Some(reduce_type.unwrap().unwrap_code()),
+        synth_name: None,
+        variants: list,
+    }
+}
+
+fn reduce_rule_decl_d(
     name: Option<Token>,
     _lbrace: Option<Token>,
     list: Vec<ast::Variant>,
@@ -290,6 +327,7 @@ fn reduce_rule_decl_b(
     ast::RuleDecl {
         name: name.unwrap().unwrap_ident(),
         reduce_type: None,
+        synth_name: None,
         variants: list,
     }
 }
@@ -580,6 +618,9 @@ pub fn make_ext_grammar(desc: &ast::Desc) -> ext::Grammar {
         let mut b = grammar.make_nonterminal(d.name.clone());
         if let Some(reduce_type) = d.reduce_type.clone() {
             b = b.external_type(reduce_type);
+        }
+        if let Some(synth_name) = d.synth_name.clone() {
+            b = b.synth_name(synth_name);
         }
         let id = b.build(&mut grammar);
         rule_map.insert(d.name.clone(), id);

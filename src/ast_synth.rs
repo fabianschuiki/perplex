@@ -888,12 +888,20 @@ fn synth_nonterminal_node(node_id: NonterminalNodeId, synth: &mut AstSynth, ctx:
     let suppress = node.nonterminal.extern_type.is_some();
     debug!("synth {:?} ({})", node_id, node.nonterminal.name);
     let id = synth.add_node(Node {
-        name: format!("nonterm_{}", node.nonterminal.name),
+        name: node
+            .nonterminal
+            .synth_name
+            .clone()
+            .unwrap_or_else(|| format!("nonterm_{}", node.nonterminal.name)),
         kind: NodeKind::Enum(Vec::new()),
         suppress: suppress,
     });
     trace!("created {:?}", id);
-    synth.register_nonterminal_type(node.nonterminal.id, Type::Node(id));
+    let node_ty = match node.nonterminal.extern_type {
+        Some(ref et) => Type::Extern(et.clone()),
+        None => Type::Node(id),
+    };
+    synth.register_nonterminal_type(node.nonterminal.id, node_ty.clone());
 
     // Populate the node body.
     let mut variants = Vec::new();
@@ -901,15 +909,14 @@ fn synth_nonterminal_node(node_id: NonterminalNodeId, synth: &mut AstSynth, ctx:
         let (ty, mut reducer) = synth_sequence_node(seq_id, synth, ctx);
         variants.push((format!("variant_{}", seq_id.0), ty));
         if !suppress && ctx[seq_id].sequence.extern_reducer.is_none() {
-            reducer.ty = Type::Node(id);
+            reducer.ty = node_ty.clone();
             reducer.root = ReducerNode::MakeEnum(id, i, Rc::new(reducer.root));
             synth.register_reducer(reducer);
         }
     }
-
     synth[id].kind = NodeKind::Enum(variants);
 
-    Type::Node(id)
+    node_ty
 }
 
 fn synth_sequence_node(
@@ -922,7 +929,11 @@ fn synth_sequence_node(
     // Create the node.
     let node = &ctx[node_id];
     let id = synth.add_node(Node {
-        name: format!("seq_{}", node.sequence.id),
+        name: node
+            .sequence
+            .synth_name
+            .clone()
+            .unwrap_or_else(|| format!("seq_{}", node.sequence.id)),
         kind: NodeKind::Enum(Vec::new()),
         suppress: node.parent.is_none() && node.nonterminal.extern_type.is_some(),
     });

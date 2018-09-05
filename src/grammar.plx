@@ -27,8 +27,8 @@ desc => `ast::Desc` {
 }
 
 item => `ast::Item` {
-	token_decl                 => `reduce_item_a`;
-	rule_decl                  => `reduce_item_b`;
+	token_decl => `reduce_item_a`;
+	rule_decl  => `reduce_item_b`;
 }
 
 token_decl => `ast::TokenDecl` {
@@ -43,8 +43,10 @@ token_name => `ast::TokenName` {
 }
 
 rule_decl => `ast::RuleDecl` {
-	IDENT '=>' CODE '{' rule_list '}' => `reduce_rule_decl_a`;
-	IDENT '{' rule_list '}'           => `reduce_rule_decl_b`;
+	IDENT '=>' CODE ',' IDENT '{' rule_list '}' => `reduce_rule_decl_a`;
+	IDENT '=>' IDENT '{' rule_list '}'          => `reduce_rule_decl_b`;
+	IDENT '=>' CODE '{' rule_list '}'           => `reduce_rule_decl_c`;
+	IDENT '{' rule_list '}'                     => `reduce_rule_decl_d`;
 }
 
 rule_list => `Vec<ast::Variant>` {
