@@ -116,22 +116,21 @@ fn main() {
     }
 
     // Create a grammar and backend description from the parsed AST.
-    let (grammar, backend) = parser::make_grammar(&desc);
-    if matches.is_present("dump_grammar") {
-        println!("{:#?}", grammar);
-        return;
-    }
-
     let ext_grammar = parser::make_ext_grammar(&desc);
     if matches.is_present("dump_ext_grammar") {
         println!("{:#?}", ext_grammar);
         return;
     }
+    let (synth, ext_grammar) = perplex::ast_synth::AstSynth::with_grammar(ext_grammar);
     if matches.is_present("synth_ast") {
-        let synth = perplex::ast_synth::AstSynth::with_grammar(&ext_grammar);
         println!("{}", synth.generate_ast());
         println!("");
         println!("{}", synth.generate_reducers());
+        return;
+    }
+    let (grammar, backend) = ext_grammar.lower();
+    if matches.is_present("dump_grammar") {
+        println!("{:#?}", grammar);
         return;
     }
 

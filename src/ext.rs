@@ -7,6 +7,9 @@ use std::fmt;
 use std::ops::{Index, IndexMut};
 use std::slice::{Iter, IterMut};
 
+use backend;
+use grammar;
+
 use Pretty;
 
 /// An extended grammar.
@@ -18,6 +21,7 @@ pub struct Grammar {
     term_names: HashMap<String, TerminalId>,
     nonterms: Vec<Nonterminal>,
     nonterm_names: HashMap<String, NonterminalId>,
+    end_pattern: Option<String>,
 }
 
 impl Grammar {
@@ -30,6 +34,7 @@ impl Grammar {
             term_names: HashMap::new(),
             nonterms: Vec::new(),
             nonterm_names: HashMap::new(),
+            end_pattern: None,
         }
     }
 
@@ -92,6 +97,16 @@ impl Grammar {
         self.add_rule(lhs, f(SequenceBuilder::new()).build())
     }
 
+    /// Set the match pattern of the special end-of-input terminal.
+    pub fn set_end_pattern(&mut self, pat: String) {
+        self.end_pattern = Some(pat);
+    }
+
+    /// Get the match pattern of the special end-of-input terminal.
+    pub fn end_pattern(&self) -> Option<&String> {
+        self.end_pattern.as_ref()
+    }
+
     /// Get an iterator over the terminals.
     pub fn terminals(&self) -> Iter<Terminal> {
         self.terms.iter()
@@ -111,6 +126,209 @@ impl Grammar {
     pub fn nonterminals_mut(&mut self) -> IterMut<Nonterminal> {
         self.nonterms.iter_mut()
     }
+
+    /// Lower the extended grammar to a regular grammar and accompanying backend
+    /// description.
+    pub fn lower(&self) -> (grammar::Grammar, backend::Backend) {
+        let mut grammar = grammar::Grammar::new();
+        let mut backend = backend::Backend::new();
+
+        // Declare the terminals.
+        let term_map: HashMap<TerminalId, grammar::TerminalId> = self
+            .terminals()
+            .enumerate()
+            .map(|(i, t)| {
+                let id = grammar.add_terminal(t.name.clone());
+                if let Some(pat) = t.match_pattern.clone() {
+                    backend.add_terminal(id, pat);
+                }
+                (TerminalId(i), id)
+            })
+            .collect();
+
+        // Specify the special end-of-input pattern.
+        if let Some(pat) = self.end_pattern.clone() {
+            backend.add_terminal(grammar::END, pat);
+        }
+
+        // Declare the nonterminals.
+        let nonterm_map: HashMap<NonterminalId, grammar::NonterminalId> = self
+            .nonterminals()
+            .enumerate()
+            .map(|(i, nt)| {
+                let id = grammar.add_nonterminal(nt.name.clone());
+                if let Some(ext) = nt.extern_type.clone() {
+                    backend.add_nonterminal(id, ext);
+                }
+                (NonterminalId(i), id)
+            })
+            .collect();
+
+        // Add the rules to the grammar.
+        for nt in self.nonterminals() {
+            for rule in &nt.rules {
+                let rule_id = self.lower_sequence(
+                    nonterm_map[&nt.id],
+                    &rule.rhs,
+                    &term_map,
+                    &nonterm_map,
+                    &mut grammar,
+                    &mut backend,
+                );
+                if let Some(rf) = rule.rhs.extern_reducer.clone() {
+                    backend.add_reduction_function(rule_id, rf);
+                }
+            }
+        }
+        // for d in &desc.rules {
+        //     let id = rule_map[&d.name];
+        // }
+
+        trace!("{:#?}", grammar);
+        (grammar, backend)
+    }
+
+    fn lower_sequence(
+        &self,
+        id: grammar::NonterminalId,
+        seq: &Sequence,
+        term_map: &HashMap<TerminalId, grammar::TerminalId>,
+        nonterm_map: &HashMap<NonterminalId, grammar::NonterminalId>,
+        grammar: &mut grammar::Grammar,
+        backend: &mut backend::Backend,
+    ) -> grammar::RuleId {
+        let mut flattened = Vec::new();
+        for symbol in &seq.symbols {
+            self.lower_symbol(
+                id,
+                symbol,
+                term_map,
+                nonterm_map,
+                grammar,
+                backend,
+                &mut flattened,
+            );
+        }
+        let rule_id = grammar.add_rule(grammar::Rule::new(id, flattened));
+        rule_id
+    }
+
+    fn lower_symbol(
+        &self,
+        id: grammar::NonterminalId,
+        symbol: &Symbol,
+        term_map: &HashMap<TerminalId, grammar::TerminalId>,
+        nonterm_map: &HashMap<NonterminalId, grammar::NonterminalId>,
+        grammar: &mut grammar::Grammar,
+        backend: &mut backend::Backend,
+        into: &mut Vec<grammar::Symbol>,
+    ) {
+        match symbol.kind {
+            SymbolKind::Terminal(id) => into.push(term_map[&id].into()),
+            SymbolKind::Nonterminal(id) => into.push(nonterm_map[&id].into()),
+            SymbolKind::Group(ref seq) => {
+                let subid = pick_subrule_name(id, grammar);
+                into.push(subid.into());
+                let mut symbols = Vec::new();
+                for symbol in &seq.symbols {
+                    self.lower_symbol(
+                        subid,
+                        symbol,
+                        term_map,
+                        nonterm_map,
+                        grammar,
+                        backend,
+                        &mut symbols,
+                    );
+                }
+                grammar.add_rule(grammar::Rule::new(subid, symbols));
+            }
+            SymbolKind::Maybe(ref s) => {
+                let subid = pick_subrule_name(id, grammar);
+                into.push(subid.into());
+                let mut symbols = Vec::new();
+                self.lower_symbol(
+                    subid,
+                    s,
+                    term_map,
+                    nonterm_map,
+                    grammar,
+                    backend,
+                    &mut symbols,
+                );
+                grammar.add_rule(grammar::Rule::new(subid, vec![]));
+                grammar.add_rule(grammar::Rule::new(subid, symbols));
+            }
+            SymbolKind::Repeat(ref seq, ref sep, allow_empty) => {
+                let subid = pick_subrule_name(id, grammar);
+                into.push(subid.into());
+                let subid = match allow_empty {
+                    true => {
+                        let subid2 = pick_subrule_name(subid, grammar);
+                        grammar.add_rule(grammar::Rule::new(subid, vec![]));
+                        grammar.add_rule(grammar::Rule::new(subid, vec![subid2.into()]));
+                        subid2
+                    }
+                    false => subid,
+                };
+                let mut symbols_seq = Vec::new();
+                let mut symbols_sep = Vec::new();
+                self.lower_symbol(
+                    subid,
+                    seq,
+                    term_map,
+                    nonterm_map,
+                    grammar,
+                    backend,
+                    &mut symbols_seq,
+                );
+                if let Some(ref sep) = *sep {
+                    self.lower_symbol(
+                        subid,
+                        sep,
+                        term_map,
+                        nonterm_map,
+                        grammar,
+                        backend,
+                        &mut symbols_sep,
+                    );
+                }
+                grammar.add_rule(grammar::Rule::new(subid, symbols_seq.clone()));
+                let mut symbols = vec![grammar::Symbol::from(subid)];
+                symbols.extend(symbols_sep);
+                symbols.extend(symbols_seq);
+                grammar.add_rule(grammar::Rule::new(subid, symbols));
+            }
+            SymbolKind::Choice(ref choices) => {
+                for choice in choices {
+                    let subid = pick_subrule_name(id, grammar);
+                    into.push(subid.into());
+                    let mut symbols = Vec::new();
+                    self.lower_symbol(
+                        subid,
+                        choice,
+                        term_map,
+                        nonterm_map,
+                        grammar,
+                        backend,
+                        &mut symbols,
+                    );
+                    grammar.add_rule(grammar::Rule::new(subid, symbols));
+                }
+            }
+        }
+    }
+}
+
+fn pick_subrule_name(
+    id: grammar::NonterminalId,
+    grammar: &mut grammar::Grammar,
+) -> grammar::NonterminalId {
+    let mut name = String::from(grammar.nonterminal_name(id));
+    while grammar.get_nonterminal(&name).is_some() {
+        name.push('\'');
+    }
+    grammar.add_nonterminal(name)
 }
 
 impl Index<TerminalId> for Grammar {

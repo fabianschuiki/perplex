@@ -7,12 +7,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 ### Added
 - Extended grammar in the `ext` module.
+- Lowering of extended grammar to basic grammar.
 - Support for grouped, optional, and repeated symbols.
 - Names for grammar symbols (e.g. `IDENT:foo`).
 - Switch to dump the parsed grammar (`--dump-grammar`).
 - Switch to dump the parsed extended grammar (`--dump-ext-grammar`).
 - Switch to synthesize the AST (`--synth-ast`).
 - Automated Syntax Tree node and reduction function synthesis.
+
+### Changed
+- Command line tool builds uses extended grammar now.
 
 ## 0.4.1 - 2018-08-13
 ### Changed

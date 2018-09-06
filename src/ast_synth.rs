@@ -512,8 +512,10 @@ pub struct AstSynth {
 
 impl AstSynth {
     /// Synthesize an AST for a grammar.
-    pub fn with_grammar(grammar: &Grammar) -> AstSynth {
-        map_grammar(grammar)
+    pub fn with_grammar(mut grammar: Grammar) -> (AstSynth, Grammar) {
+        let synth = map_grammar(&grammar);
+        synth.apply(&mut grammar);
+        (synth, grammar)
     }
 
     /// Add a node to the synthesized tree and return its id.
@@ -689,6 +691,10 @@ impl AstSynth {
             _ => panic!("unsupported type `{}`", ty),
         }
     }
+
+    /// Register the synthesized AST nodes and reduction functions with a
+    /// grammar.
+    fn apply(&self, _grammar: &mut Grammar) {}
 }
 
 impl Index<NodeId> for AstSynth {

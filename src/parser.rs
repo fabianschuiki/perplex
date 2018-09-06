@@ -643,7 +643,12 @@ pub fn make_ext_grammar(desc: &ast::Desc) -> ext::Grammar {
                 token_map.insert(name.clone(), id);
                 id
             }
-            ast::TokenName::End => continue,
+            ast::TokenName::End => {
+                if let Some(pat) = d.pattern.clone() {
+                    grammar.set_end_pattern(pat);
+                }
+                continue;
+            }
         };
     }
     for d in &desc.rules {
