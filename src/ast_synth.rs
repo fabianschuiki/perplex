@@ -523,13 +523,6 @@ impl AstSynth {
         id
     }
 
-    /// Add a reducer to the synthesized tree and return its id.
-    fn add_reducer(&mut self, reducer: Rc<ReducerNode>) -> ReducerId {
-        let id = ReducerId(self.reducers.len());
-        self.reducers.push(reducer);
-        id
-    }
-
     /// Register a type for a nonterminal.
     ///
     /// Panics if a type has already been registered for the same nonterminal.
@@ -539,13 +532,7 @@ impl AstSynth {
         }
     }
 
-    /// Register a reducer for a sequence.
-    fn register_sequence_reducer(&mut self, id: SequenceId, reducer: ReducerId) {
-        if self.seq_reducers.insert(id, reducer).is_some() {
-            panic!("reducer for sequence {:?} already registered", id);
-        }
-    }
-
+    /// Register a reducer.
     fn register_reducer(&mut self, reducer: Reducer) {
         let sseq = reducer.sequence;
         if self.reducers2.insert(sseq, reducer).is_some() {
