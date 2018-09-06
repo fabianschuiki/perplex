@@ -1,5 +1,5 @@
-token IDENT     => `Some(Token::Ident(_))`;
-token CODE      => `Some(Token::Code(_))`;
+token IDENT     => `Some(Token::Ident(_))`, `String`;
+token CODE      => `Some(Token::Code(_))`, `String`;
 token 'token'   => `Some(Token::Keyword(Keyword::Token))`;
 token 'epsilon' => `Some(Token::Keyword(Keyword::Epsilon))`;
 token 'end'     => `Some(Token::Keyword(Keyword::End))`;
@@ -55,10 +55,8 @@ rule_list => `Vec<ast::Variant>` {
 }
 
 variant => `ast::Variant` {
-	sequence_or_epsilon '=>' CODE ',' IDENT ';' => `reduce_variant_a`;
-	sequence_or_epsilon '=>' IDENT ';'          => `reduce_variant_b`;
-	sequence_or_epsilon '=>' CODE ';'           => `reduce_variant_c`;
-	sequence_or_epsilon ';'                     => `reduce_variant_d`;
+	sequence_or_epsilon '=>' CODE ';' => `reduce_variant_a`;
+	sequence_or_epsilon ';'           => `reduce_variant_b`;
 }
 
 sequence_or_epsilon => `Vec<ast::Symbol>` {
@@ -88,7 +86,7 @@ repetition_sequence => `ast::RepSequence` {
 	'(' sequence ';' sequence ')' => `reduce_repetition_sequence_b`;
 }
 
-primary_symbol => `ast::Symbol` {
-	IDENT            => `reduce_primary_symbol_a`;
-	'(' sequence ')' => `reduce_primary_symbol_b`;
+primary_symbol => PrimarySymbol /*`ast::Symbol`*/ {
+	IDENT            => Token /*`reduce_primary_symbol_a`*/;
+	'(' sequence ')' => Group /*`reduce_primary_symbol_b`*/;
 }

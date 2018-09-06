@@ -907,7 +907,12 @@ fn synth_nonterminal_node(node_id: NonterminalNodeId, synth: &mut AstSynth, ctx:
     let mut variants = Vec::new();
     for (i, &seq_id) in node.rules.iter().enumerate() {
         let (ty, mut reducer) = synth_sequence_node(seq_id, synth, ctx);
-        variants.push((format!("variant_{}", seq_id.0), ty));
+        let name = ctx[seq_id]
+            .sequence
+            .synth_name
+            .clone()
+            .unwrap_or_else(|| format!("variant_{}", seq_id.0));
+        variants.push((name, ty));
         if !suppress && ctx[seq_id].sequence.extern_reducer.is_none() {
             reducer.ty = node_ty.clone();
             reducer.root = ReducerNode::MakeEnum(id, i, Rc::new(reducer.root));

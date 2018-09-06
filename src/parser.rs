@@ -78,6 +78,8 @@ pub mod ast {
         pub seq: Vec<Symbol>,
         /// The reduction function name of the rule.
         pub reduction_function: Option<String>,
+        /// The synthesized name of the rule.
+        pub synth_name: Option<String>,
     }
 
     /// A symbol in a sequence.
@@ -345,18 +347,48 @@ fn reduce_variant_a(
     seq: Vec<ast::Symbol>,
     _rarrow: Option<Token>,
     reduction_function: Option<Token>,
+    _comma: Option<Token>,
+    synth_name: Option<Token>,
     _semicolon: Option<Token>,
 ) -> ast::Variant {
     ast::Variant {
         seq: seq,
         reduction_function: Some(reduction_function.unwrap().unwrap_code()),
+        synth_name: Some(synth_name.unwrap().unwrap_ident()),
     }
 }
 
-fn reduce_variant_b(seq: Vec<ast::Symbol>, _semicolon: Option<Token>) -> ast::Variant {
+fn reduce_variant_b(
+    seq: Vec<ast::Symbol>,
+    _rarrow: Option<Token>,
+    synth_name: Option<Token>,
+    _semicolon: Option<Token>,
+) -> ast::Variant {
     ast::Variant {
         seq: seq,
         reduction_function: None,
+        synth_name: Some(synth_name.unwrap().unwrap_ident()),
+    }
+}
+
+fn reduce_variant_c(
+    seq: Vec<ast::Symbol>,
+    _rarrow: Option<Token>,
+    reduction_function: Option<Token>,
+    _semicolon: Option<Token>,
+) -> ast::Variant {
+    ast::Variant {
+        seq: seq,
+        reduction_function: Some(reduction_function.unwrap().unwrap_code()),
+        synth_name: None,
+    }
+}
+
+fn reduce_variant_d(seq: Vec<ast::Symbol>, _semicolon: Option<Token>) -> ast::Variant {
+    ast::Variant {
+        seq: seq,
+        reduction_function: None,
+        synth_name: None,
     }
 }
 
@@ -647,6 +679,9 @@ pub fn make_ext_grammar(desc: &ast::Desc) -> ext::Grammar {
             let rule_id = grammar.make_rule(id, |s| insert_ext_sequence(s, &v.seq, &symbol_map));
             if let Some(rf) = v.reduction_function.clone() {
                 grammar[rule_id].rhs.extern_reducer = Some(rf);
+            }
+            if let Some(sn) = v.synth_name.clone() {
+                grammar[rule_id].rhs.synth_name = Some(sn);
             }
         }
     }
