@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 - Command line tool builds uses extended grammar now.
+- Improve `--dump-grammar` output.
 
 ## 0.4.1 - 2018-08-13
 ### Changed

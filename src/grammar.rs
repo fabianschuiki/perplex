@@ -3,9 +3,9 @@
 //! Data structures representing a grammar.
 
 use std;
+use std::collections::HashMap;
 use std::fmt;
 use std::ops::{Index, IndexMut};
-use std::collections::HashMap;
 use Pretty;
 
 /// A grammar.
@@ -215,6 +215,20 @@ impl IndexMut<RuleId> for Grammar {
             panic!("cannot index builtin ACCEPT rule");
         }
         &mut self.rules[index.as_usize()]
+    }
+}
+
+impl fmt::Display for Grammar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut iter = self.rules();
+        match iter.next() {
+            Some(r) => write!(f, "{}", r.pretty(self))?,
+            None => return write!(f, "<empty grammar>"),
+        };
+        for r in iter {
+            write!(f, "\n{}", r.pretty(self))?;
+        }
+        Ok(())
     }
 }
 

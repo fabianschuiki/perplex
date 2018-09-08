@@ -130,7 +130,7 @@ fn main() {
     }
     let (grammar, backend) = ext_grammar.lower();
     if matches.is_present("dump_grammar") {
-        println!("{:#?}", grammar);
+        println!("{}", grammar);
         return;
     }
 
