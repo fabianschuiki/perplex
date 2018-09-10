@@ -1165,58 +1165,6 @@ fn synth_symbol_node(node_id: SymbolNodeId, synth: &mut AstSynth, ctx: &Context)
     }
 }
 
-// fn codegen_reduce_fn(ctx: &Context, seqid: SequenceId, mapping: &[usize]) {
-//     println!("// sequence {}", seqid);
-
-//     // Assemble the arguments.
-//     let used_syms: HashSet<_> = mapping.iter().cloned().collect();
-//     let mut args = Vec::new();
-//     for (i, ty) in ctx.sym_types[&seqid].iter().enumerate() {
-//         let prefix = if used_syms.contains(&i) { "" } else { "_" };
-//         args.push(format!(
-//             "{}arg{}: {}",
-//             prefix,
-//             i,
-//             codegen_type(ctx, ctx.grammar, ty)
-//         ));
-//     }
-
-//     let args = args.into_iter().fold(String::new(), |mut s, i| {
-//         if !s.is_empty() {
-//             s.push_str(", ");
-//         }
-//         s.push_str(&i);
-//         s
-//     });
-
-//     let ty = &ctx.seq_types[&seqid];
-//     let rety = codegen_type(ctx, ctx.grammar, ty);
-//     println!("pub fn reduce_{}({}) -> {} {{", seqid, args, rety);
-//     let node_id = match *ty {
-//         Type::Node(id) => id,
-//         _ => panic!("reduction function should yield non-node type"),
-//     };
-//     let node = &ctx.nodes[node_id.0];
-//     match node.kind {
-//         NodeKind::Struct(ref fields) => {
-//             println!("    {} {{", node.name);
-//             for (&(ref name, _), &i) in fields.iter().zip(mapping.iter()) {
-//                 println!("        {}: arg{},", name, i);
-//             }
-//             println!("    }}");
-//         }
-//         NodeKind::Tuple(ref _fields) => {
-//             println!("    {} (", node.name);
-//             for &i in mapping {
-//                 println!("        arg{},", i);
-//             }
-//             println!("    )");
-//         }
-//         NodeKind::Enum(ref _variants) => {}
-//     }
-//     println!("}}");
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;
