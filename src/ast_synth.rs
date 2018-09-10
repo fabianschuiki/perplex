@@ -414,7 +414,6 @@ fn gather_children_nonterminal(ctx: &mut Context, nt: NonterminalNodeId) {
         children.sequences.insert(rule);
         children.extend(&ctx[rule].children);
     }
-    trace!("nonterminal {:?} {:#?}", nt, children);
     ctx[nt].children = children;
 }
 
@@ -425,7 +424,6 @@ fn gather_children_sequence(ctx: &mut Context, seq: SequenceNodeId) {
         children.symbols.insert(sym);
         children.extend(&ctx[sym].children);
     }
-    trace!("sequence {:?} {:#?}", seq, children);
     ctx[seq].children = children;
 }
 
@@ -463,7 +461,6 @@ fn gather_children_symbol(ctx: &mut Context, sym: SymbolNodeId) {
             }
         }
     }
-    trace!("symbol {:?} {:#?}", sym, children);
     ctx[sym].children = children;
 }
 
@@ -484,14 +481,14 @@ fn find_recursions(
             }
             _ => false,
         };
-        ctx[sym].recursive |= recursive;
-        if recursive {
+        if ctx[sym].recursive ^ recursive {
             debug!("recursion found:",);
             for &nt in stack.iter() {
                 debug!(" - {}", ctx[nt].nonterminal.id.pretty(ctx.grammar));
             }
             debug!("    -> {}", ctx[sym].symbol.pretty(ctx.grammar));
         }
+        ctx[sym].recursive |= recursive;
     }
     stack.remove(&node_id);
     false
