@@ -55,19 +55,21 @@ rule_list => `Vec<ast::Variant>` {
 }
 
 variant => `ast::Variant` {
-	sequence_or_epsilon '=>' CODE ';' => `reduce_variant_a`;
-	sequence_or_epsilon ';'           => `reduce_variant_b`;
+	sequence_or_epsilon '=>' CODE ',' IDENT ';' => `reduce_variant_a`;
+	sequence_or_epsilon '=>' IDENT ';'          => `reduce_variant_b`;
+	sequence_or_epsilon '=>' CODE ';'           => `reduce_variant_c`;
+	sequence_or_epsilon ';'                     => `reduce_variant_d`;
 }
 
 sequence_or_epsilon => `Vec<ast::Symbol>` {
-	sequence  => `reduce_sequence_or_epsilon_a`;
+	symbol+  => `reduce_sequence_or_epsilon_a`;
 	'epsilon' => `reduce_sequence_or_epsilon_b`;
 }
 
-sequence => `Vec<ast::Symbol>` {
-	sequence symbol => `reduce_sequence_a`;
-	symbol          => `reduce_sequence_b`;
-}
+// sequence => `Vec<ast::Symbol>` {
+// 	sequence symbol => `reduce_sequence_a`;
+// 	symbol          => `reduce_sequence_b`;
+// }
 
 symbol => `ast::Symbol` {
 	core_symbol           => `reduce_symbol_a`;
@@ -83,10 +85,10 @@ core_symbol => `ast::Symbol` {
 
 repetition_sequence => `ast::RepSequence` {
 	primary_symbol                => `reduce_repetition_sequence_a`;
-	'(' sequence ';' sequence ')' => `reduce_repetition_sequence_b`;
+	'(' symbol+ ';' symbol+ ')' => `reduce_repetition_sequence_b`;
 }
 
-primary_symbol => PrimarySymbol /*`ast::Symbol`*/ {
-	IDENT            => Token /*`reduce_primary_symbol_a`*/;
-	'(' sequence ')' => Group /*`reduce_primary_symbol_b`*/;
+primary_symbol => `ast::Symbol` {
+	IDENT            => `reduce_primary_symbol_a`;
+	'(' symbol+ ')' => `reduce_primary_symbol_b`;
 }

@@ -537,6 +537,7 @@ impl AstSynth {
     /// Register a reducer.
     fn register_reducer(&mut self, reducer: Reducer) {
         let sseq = reducer.sequence;
+        trace!("register reducer for {:?}: {:?}", sseq, reducer);
         if self.reducers2.insert(sseq, reducer).is_some() {
             panic!("reducer for sequence {:?} already registered", sseq);
         }
@@ -694,7 +695,45 @@ impl AstSynth {
 
     /// Register the synthesized AST nodes and reduction functions with a
     /// grammar.
-    fn apply(&self, _grammar: &mut Grammar) {}
+    fn apply(&self, grammar: &mut Grammar) {
+        for nt in grammar.nonterminals_mut() {
+            if let Some(ty) = self.nonterm_types.get(&nt.id) {
+                nt.extern_type = Some(self.generate_type(ty));
+            }
+            for rule in nt.rules_mut() {
+                self.apply_sequence(&mut rule.rhs);
+            }
+        }
+    }
+
+    fn apply_sequence(&self, sequence: &mut Sequence) {
+        if let Some(ref reducer) = self.reducers2.get(&SynthSequence::Regular(sequence.id)) {
+            // sequence.extern_type = Some(self.generate_type(&reducer.ty));
+            sequence.extern_reducer = Some(reducer.name.clone());
+        }
+        for symbol in &mut sequence.symbols {
+            self.apply_symbol(symbol);
+        }
+    }
+
+    fn apply_symbol(&self, symbol: &mut Symbol) {
+        match symbol.kind {
+            SymbolKind::Terminal(_) | SymbolKind::Nonterminal(_) => (),
+            SymbolKind::Group(ref mut s) => self.apply_sequence(s),
+            SymbolKind::Maybe(ref mut s) => self.apply_symbol(s),
+            SymbolKind::Repeat(ref mut rep, ref mut sep, _) => {
+                self.apply_symbol(rep);
+                if let Some(ref mut sep) = *sep {
+                    self.apply_symbol(sep);
+                }
+            }
+            SymbolKind::Choice(ref mut symbols) => {
+                for symbol in symbols {
+                    self.apply_symbol(symbol);
+                }
+            }
+        }
+    }
 }
 
 impl Index<NodeId> for AstSynth {

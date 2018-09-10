@@ -212,4 +212,16 @@ fn main() {
     let stdout = std::io::stdout();
     generate_parser(&mut stdout.lock(), &backend, &sm, &grammar)
         .expect("failed to generate parser code");
+
+    // Generate the AST and reduction functions.
+    let synth_ast = synth.generate_ast();
+    let synth_reducers = synth.generate_reducers();
+    if !synth_ast.is_empty() {
+        println!("");
+        println!("{}", synth_ast);
+    }
+    if !synth_reducers.is_empty() {
+        println!("");
+        println!("{}", synth_reducers);
+    }
 }
