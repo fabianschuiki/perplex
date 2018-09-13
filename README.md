@@ -15,7 +15,7 @@ This is *perplex*, a grammar analyzer and parser generator for almost-context-fr
 - [x] conflict reporting
 - [x] state space computation
 - [ ] GLR analysis with recursive rules
-- [ ] separate extended grammar with symbol groups, optional symbols, repetitions
+- [x] separate extended grammar with symbol groups, optional symbols, repetitions
 - [ ] generalization to CFG, tiered parsing
 - [ ] location and span tracking
 - [ ] automated AST synthesis
