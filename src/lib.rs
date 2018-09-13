@@ -10,17 +10,18 @@ extern crate indexmap;
 extern crate log;
 extern crate perplex_runtime;
 
-pub mod grammar;
-pub mod first;
-pub mod item_set;
-pub mod machine;
-pub mod backend;
-mod honalee;
-pub mod lexer;
-pub mod parser;
-pub mod glr;
-pub mod ext;
 pub mod ast_synth;
+pub mod backend;
+pub mod ext;
+pub mod first;
+pub mod glr;
+pub mod grammar;
+mod honalee;
+pub mod item_set;
+pub mod lexer;
+mod lower;
+pub mod machine;
+pub mod parser;
 
 /// A pretty printer.
 pub struct Pretty<C, T> {
