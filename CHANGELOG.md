@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Switch to dump the parsed extended grammar (`--dump-ext-grammar`).
 - Switch to synthesize the AST (`--synth-ast`).
 - Automated Syntax Tree node and reduction function synthesis.
+- Switch to report conflicts (`--report-conflicts`).
 
 ### Changed
 - Command line tool builds uses extended grammar now.
