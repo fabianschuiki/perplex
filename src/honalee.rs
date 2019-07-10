@@ -6,8 +6,8 @@ use std::collections::{BTreeSet, HashMap};
 
 use bit_set::BitSet;
 
-use grammar::{self, Grammar, NonterminalId, RuleId, Symbol};
 use first::FirstSets;
+use grammar::{self, Grammar, NonterminalId, RuleId, Symbol};
 use item_set::{Action, Item, ItemSet, ItemSetId, ItemSets, KernelCores};
 
 /// Construct the item sets for a grammar.
@@ -24,14 +24,12 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
     // Create the initial item set.
     let initial = ItemSet::with_items(
         ItemSetId::from_usize(0),
-        vec![
-            Item {
-                rule: grammar::ACCEPT,
-                lookahead: grammar::END,
-                marker: 0,
-                action: None,
-            },
-        ],
+        vec![Item {
+            rule: grammar::ACCEPT,
+            lookahead: grammar::END,
+            marker: 0,
+            action: None,
+        }],
     );
     debug!("running honalee algorithm on {}", initial.pretty(grammar));
     todo_list.push(initial);
@@ -58,7 +56,7 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                         continue;
                     }
                 } else {
-                    let symbols = grammar.rule(item.rule).symbols();
+                    let symbols = grammar[item.rule].symbols();
                     if item.marker == symbols.len() {
                         item.rule
                     } else {
@@ -88,12 +86,13 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                     // trace!("{}", done_list[index].pretty(grammar));
 
                     // Make sure that merging would not produce any conflicts.
-                    let no_conflicts = done_list[index].actions().all(|&(symbol, merge_rule)| {
-                        match reduce_lookup.get(&symbol) {
-                            Some(&rule) if Action::Reduce(rule) != merge_rule => false,
-                            _ => true,
-                        }
-                    });
+                    let no_conflicts =
+                        done_list[index]
+                            .actions()
+                            .all(|&(symbol, merge_rule)| match reduce_lookup.get(&symbol) {
+                                Some(&rule) if Action::Reduce(rule) != merge_rule => false,
+                                _ => true,
+                            });
                     if no_conflicts {
                         debug!("merging i{} into i{}", item_set.id, index);
                         trace!("{}", item_set.pretty(grammar));
@@ -144,20 +143,14 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
             let mut item_set = &mut done_list[index];
             debug!("adding shifts for {:?}", item_set.id);
 
-            let root_symbol = Symbol::Nonterminal(NonterminalId::from_usize(0));
             let mut treated = BitSet::with_capacity(item_set.items.len());
             for i in 0..item_set.items.len() {
                 let item = item_set.items[i];
                 if treated.contains(i) {
                     continue;
                 }
-                let symbol = if item.rule == grammar::ACCEPT {
-                    if item.marker != 0 {
-                        continue;
-                    }
-                    &root_symbol
-                } else {
-                    let symbols = grammar.rule(item.rule).symbols();
+                let symbol = {
+                    let symbols = grammar[item.rule].symbols();
                     if item.marker < symbols.len() {
                         &symbols[item.marker] // TODO: use proper marker math
                     } else {
@@ -174,13 +167,8 @@ pub(crate) fn construct_item_sets(grammar: &Grammar) -> ItemSets {
                     if treated.contains(n) {
                         continue;
                     }
-                    let symbol2 = if item2.rule == grammar::ACCEPT {
-                        if item.marker != 0 {
-                            continue;
-                        }
-                        &root_symbol
-                    } else {
-                        let symbols = grammar.rule(item2.rule).symbols();
+                    let symbol2 = {
+                        let symbols = grammar[item2.rule].symbols();
                         if item2.marker < symbols.len() {
                             &symbols[item2.marker]
                         } else {

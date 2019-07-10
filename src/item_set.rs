@@ -3,18 +3,18 @@
 //! Item sets derived from a grammar.
 
 use std;
-use std::fmt;
-use std::ops::{Index, IndexMut};
 use std::collections::{BTreeSet, HashSet};
+use std::fmt;
 use std::iter::{once, repeat};
 use std::mem::replace;
+use std::ops::{Index, IndexMut};
 
 use bit_set::BitSet;
 
-use Pretty;
-use grammar::{self, Grammar, NonterminalId, RuleId, Symbol, TerminalId};
 use first::FirstSets;
+use grammar::{self, Grammar, NonterminalId, RuleId, Symbol, TerminalId};
 use honalee;
+use Pretty;
 
 /// All item sets of a grammar.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -191,7 +191,8 @@ impl ItemSet {
 
     /// Merge another item set into this.
     pub fn merge(&mut self, other: ItemSet) {
-        let mut present: HashSet<Item> = self.items
+        let mut present: HashSet<Item> = self
+            .items
             .iter()
             .cloned()
             .map(|mut item| {
@@ -310,26 +311,15 @@ impl Item {
 
 impl<'a> fmt::Display for Pretty<&'a Grammar, &'a Item> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.item.rule == grammar::ACCEPT {
-            write!(f, "[$accept ->")?;
-            if self.item.marker == 0 {
-                write!(f, " .")?;
-            }
-            write!(f, " {}", NonterminalId::from_usize(0).pretty(self.ctx))?;
-            if self.item.marker == 1 {
-                write!(f, " .")?;
-            }
-        } else {
-            let rule = self.ctx.rule(self.item.rule);
-            write!(f, "[{} ->", rule.name().pretty(self.ctx))?;
-            let symbols = rule.symbols();
-            for symbol in &symbols[0..self.item.marker] {
-                write!(f, " {}", symbol.pretty(self.ctx))?;
-            }
-            write!(f, " .")?;
-            for symbol in &symbols[self.item.marker..] {
-                write!(f, " {}", symbol.pretty(self.ctx))?;
-            }
+        let rule = &self.ctx[self.item.rule];
+        write!(f, "[{} ->", rule.name().pretty(self.ctx))?;
+        let symbols = rule.symbols();
+        for symbol in &symbols[0..self.item.marker] {
+            write!(f, " {}", symbol.pretty(self.ctx))?;
+        }
+        write!(f, " .")?;
+        for symbol in &symbols[self.item.marker..] {
+            write!(f, " {}", symbol.pretty(self.ctx))?;
         }
         write!(f, ", {}]", self.item.lookahead.pretty(self.ctx))?;
         Ok(())
@@ -389,49 +379,32 @@ fn compute_closure(item_set: &mut ItemSet, grammar: &Grammar, first_sets: &First
     while item_set.items.len() > tail {
         let item = item_set.items[tail];
         tail += 1;
-        if item.rule == grammar::ACCEPT {
-            if item.marker == 0 {
-                for &rule_id in grammar.rules_for_nonterminal(NonterminalId::from_usize(0)) {
-                    let new_item = Item {
-                        rule: rule_id,
-                        lookahead: item.lookahead,
-                        marker: 0,
-                        action: None,
-                    };
-                    if !done.contains(&new_item) {
-                        done.insert(new_item);
-                        item_set.items.push(new_item);
-                    }
+        let symbols = grammar[item.rule].symbols();
+        if item.marker == symbols.len() {
+            continue;
+        }
+        match symbols[item.marker] {
+            Symbol::Terminal(_) => (),
+            Symbol::Nonterminal(id) => {
+                // Compute the follow set for the nonterminal.
+                let (mut follow_set, epsilon) =
+                    compute_follow_set(&symbols[item.marker + 1..], grammar, first_sets);
+                if epsilon {
+                    follow_set.insert(item.lookahead.as_usize());
                 }
-            }
-        } else {
-            let symbols = grammar.rule(item.rule).symbols();
-            if item.marker == symbols.len() {
-                continue;
-            }
-            match symbols[item.marker] {
-                Symbol::Terminal(_) => (),
-                Symbol::Nonterminal(id) => {
-                    // Compute the follow set for the nonterminal.
-                    let (mut follow_set, epsilon) =
-                        compute_follow_set(&symbols[item.marker + 1..], grammar, first_sets);
-                    if epsilon {
-                        follow_set.insert(item.lookahead.as_usize());
-                    }
 
-                    // Generate the new items.
-                    for &rule_id in grammar.rules_for_nonterminal(id) {
-                        for fs in &follow_set {
-                            let new_item = Item {
-                                rule: rule_id,
-                                lookahead: TerminalId::from_usize(fs),
-                                marker: 0,
-                                action: None,
-                            };
-                            if !done.contains(&new_item) {
-                                done.insert(new_item);
-                                item_set.items.push(new_item);
-                            }
+                // Generate the new items.
+                for &rule_id in grammar.rules_for_nonterminal(id) {
+                    for fs in &follow_set {
+                        let new_item = Item {
+                            rule: rule_id,
+                            lookahead: TerminalId::from_usize(fs),
+                            marker: 0,
+                            action: None,
+                        };
+                        if !done.contains(&new_item) {
+                            done.insert(new_item);
+                            item_set.items.push(new_item);
                         }
                     }
                 }

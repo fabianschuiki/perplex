@@ -48,7 +48,10 @@ pub struct TerminalId(usize);
 pub struct RuleId(usize);
 
 /// The start rule `$accept -> S`.
-pub const ACCEPT: RuleId = RuleId(std::usize::MAX);
+pub const ACCEPT: RuleId = RuleId(0);
+
+/// The start nonterminal `$accept`.
+pub const ACCEPT_NONTERMINAL: NonterminalId = NonterminalId(0);
 
 /// The special end of input terminal `$end`.
 pub const END: TerminalId = TerminalId(0);
@@ -69,14 +72,20 @@ pub type RuleIdsIter<'a> = std::slice::Iter<'a, RuleId>;
 impl Grammar {
     /// Create a new empty grammar.
     pub fn new() -> Grammar {
-        Grammar {
+        let mut g = Grammar {
             rules: Vec::new(),
             nonterms: HashMap::new(),
             terms: HashMap::new(),
             nonterm_names: Vec::new(),
             nonterm_rules: Vec::new(),
             term_names: Vec::new(),
-        }
+        };
+        g.add_nonterminal("$accept");
+        g.add_rule(Rule::new(
+            ACCEPT_NONTERMINAL,
+            vec![Symbol::Nonterminal(NonterminalId(1))],
+        ));
+        g
     }
 
     /// Add a nonterminal.
@@ -138,6 +147,16 @@ impl Grammar {
         self.terms.get(name.as_ref()).cloned()
     }
 
+    /// Get all nonterminals in the grammar.
+    pub fn nonterminals(&self) -> impl Iterator<Item = NonterminalId> {
+        (0..self.nonterminal_id_bound()).map(NonterminalId::from_usize)
+    }
+
+    /// Get all terminals in the grammar.
+    pub fn terminals(&self) -> impl Iterator<Item = TerminalId> {
+        (LOWEST_TERMINAL_ID..self.terminal_id_bound()).map(TerminalId::from_usize)
+    }
+
     /// Get the name of a nonterminal.
     pub fn nonterminal_name(&self, id: NonterminalId) -> &str {
         &self.nonterm_names[id.as_usize()]
@@ -185,35 +204,18 @@ impl Grammar {
     pub fn rules_for_nonterminal(&self, id: NonterminalId) -> RuleIdsIter {
         self.nonterm_rules[id.as_usize()].iter()
     }
-
-    /// Access a single rule of this grammar.
-    ///
-    /// Panics if the id is the builtin `ACCEPT` nonterminal, which represents
-    /// the virtual root rule.
-    pub fn rule(&self, id: RuleId) -> &Rule {
-        if id == ACCEPT {
-            panic!("rule() called for builtin ACCEPT rule");
-        }
-        &self.rules[id.as_usize()]
-    }
 }
 
 impl Index<RuleId> for Grammar {
     type Output = Rule;
 
     fn index(&self, index: RuleId) -> &Rule {
-        if index == ACCEPT {
-            panic!("cannot index builtin ACCEPT rule");
-        }
         &self.rules[index.as_usize()]
     }
 }
 
 impl IndexMut<RuleId> for Grammar {
     fn index_mut(&mut self, index: RuleId) -> &mut Rule {
-        if index == ACCEPT {
-            panic!("cannot index builtin ACCEPT rule");
-        }
         &mut self.rules[index.as_usize()]
     }
 }
